@@ -1,26 +1,52 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Utensils, Wrench, Volume2, Users, ArrowRight, Moon, Sun, Loader2, BedDouble } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Utensils,
+  Wrench,
+  Volume2,
+  Users,
+  ArrowRight,
+  Moon,
+  Sun,
+  Loader2,
+  BedDouble,
+} from "lucide-react";
+import { motion } from "framer-motion";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "../firebase";
+
+interface MenuItem {
+  name: string;
+  image?: string;
+}
+
+interface MenuData {
+  breakfast: MenuItem[];
+  lunch: MenuItem[];
+  dinner: MenuItem[];
+}
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       return (
-        localStorage.getItem('theme') === 'dark' ||
-        (!('theme' in localStorage) &&
-          window.matchMedia('(prefers-color-scheme: dark)').matches)
+        localStorage.getItem("theme") === "dark" ||
+        (!("theme" in localStorage) &&
+          window.matchMedia("(prefers-color-scheme: dark)").matches)
       );
     }
     return false;
   });
 
-  // ✅ Will be filled from localStorage (userProfile OR student)
   const [userProfile, setUserProfile] = useState({
-    name: 'Student',
-    photo: 'https://picsum.photos/100/100?random=10',
+    name: "Alex",
+    photo: "https://picsum.photos/100/100?random=10",
   });
+
+  // 🔹 Mess menu state (from Firestore)
+  const [menu, setMenu] = useState<MenuData | null>(null);
+  const [menuLoading, setMenuLoading] = useState(true);
 
   // Pull to refresh state
   const [pullY, setPullY] = useState(0);
@@ -30,49 +56,69 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      document.documentElement.classList.add("dark");
+      localStorage.setItem("theme", "dark");
     } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      document.documentElement.classList.remove("dark");
+      localStorage.setItem("theme", "light");
     }
   }, [isDarkMode]);
 
-  // ✅ Load name/photo from localStorage so greeting uses entered name
   useEffect(() => {
-    const savedProfile = localStorage.getItem('userProfile');
-    const savedStudent = localStorage.getItem('student');
-
-    let name = 'Student';
-    let photo = 'https://picsum.photos/100/100?random=10';
-
-    if (savedProfile) {
-      try {
-        const parsed = JSON.parse(savedProfile);
-        name = parsed.name || name;
-        photo = parsed.photo || photo;
-      } catch {
-        // ignore parse errors
-      }
-    } else if (savedStudent) {
-      try {
-        const parsed = JSON.parse(savedStudent);
-        name = parsed.name || name;
-      } catch {
-        // ignore
-      }
+    const saved = localStorage.getItem("userProfile");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      setUserProfile({
+        name: parsed.name || "Alex",
+        photo: parsed.photo || "https://picsum.photos/100/100?random=10",
+      });
     }
-
-    setUserProfile({ name, photo });
   }, []);
+
+  // 🔹 Load today's menu from Firestore
+  useEffect(() => {
+    const loadMenu = async () => {
+      setMenuLoading(true);
+      try {
+        const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
+        const ref = doc(db, "messMenu", today);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          const fromDb = (data.menu || data) as MenuData;
+
+          const normalize = (items: any[]): MenuItem[] =>
+            items.map((i) => (typeof i === "string" ? { name: i } : i));
+
+          setMenu({
+            breakfast: normalize(fromDb.breakfast || []),
+            lunch: normalize(fromDb.lunch || []),
+            dinner: normalize(fromDb.dinner || []),
+          });
+        } else {
+          setMenu(null);
+        }
+      } catch (e) {
+        console.error("Failed to load menu", e);
+        setMenu(null);
+      } finally {
+        setMenuLoading(false);
+      }
+    };
+
+    loadMenu();
+  }, [refreshKey]); // re-load when user pulls to refresh
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
 
-  const getFirstName = (fullName: string) => fullName.split(' ')[0];
+  const getFirstName = (fullName: string) => fullName.split(" ")[0];
 
-  // Pull to refresh handlers (unchanged)
+  // Pull to refresh handlers
   const handleTouchStart = (e: React.TouchEvent) => {
-    const scrollParent = (e.currentTarget as HTMLElement).closest('.overflow-y-auto');
+    const scrollParent = (e.currentTarget as HTMLElement).closest(
+      ".overflow-y-auto"
+    );
     const scrollTop = scrollParent ? scrollParent.scrollTop : 0;
 
     if (scrollTop === 0) {
@@ -110,9 +156,19 @@ export const Dashboard: React.FC = () => {
     setTimeout(() => {
       setIsRefreshing(false);
       setPullY(0);
-      setRefreshKey((prev) => prev + 1);
+      setRefreshKey((prev) => prev + 1); // this will re-trigger menu load
     }, 1500);
   };
+
+  const breakfastText =
+    menu && menu.breakfast.length > 0
+      ? menu.breakfast.map((b) => b.name).join(", ")
+      : "Menu not published yet";
+
+  const lunchText =
+    menu && menu.lunch.length > 0
+      ? menu.lunch.map((l) => l.name).join(", ")
+      : "Menu not published yet";
 
   return (
     <div
@@ -128,7 +184,7 @@ export const Dashboard: React.FC = () => {
       >
         <div
           className={`transition-transform duration-300 ${
-            isRefreshing ? 'animate-spin' : ''
+            isRefreshing ? "animate-spin" : ""
           }`}
           style={{ transform: `rotate(${pullY * 2}deg)` }}
         >
@@ -171,7 +227,7 @@ export const Dashboard: React.FC = () => {
             </button>
 
             <div
-              onClick={() => navigate('/profile')}
+              onClick={() => navigate("/profile")}
               className="bg-orange-100 dark:bg-orange-900/40 p-1 rounded-full transition-colors cursor-pointer active:scale-95"
             >
               <img
@@ -183,18 +239,16 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* ✅ Greeting with entered name */}
         <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-8 transition-colors">
           Good Morning, {getFirstName(userProfile.name)}!
         </h1>
 
-        {/* rest of your original Dashboard (unchanged) */}
         {/* Menu Card */}
         <motion.div
           key={refreshKey}
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          onClick={() => navigate('/mess')}
+          onClick={() => navigate("/mess")}
           className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm mb-8 relative overflow-hidden group cursor-pointer transition-colors duration-300"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-50 dark:bg-slate-700/50 rounded-bl-full -mr-8 -mt-8 z-0 transition-transform group-hover:scale-110" />
@@ -217,7 +271,7 @@ export const Dashboard: React.FC = () => {
                   Breakfast
                 </span>
                 <p className="text-slate-700 dark:text-slate-200 font-medium">
-                  Poha, Tea, Toast
+                  {menuLoading ? "Loading..." : breakfastText}
                 </p>
               </div>
               <div>
@@ -225,7 +279,7 @@ export const Dashboard: React.FC = () => {
                   Lunch
                 </span>
                 <p className="text-slate-700 dark:text-slate-200 font-medium">
-                  Roti, Dal Fry, Jeera Rice, Salad
+                  {menuLoading ? "Loading..." : lunchText}
                 </p>
               </div>
             </div>
@@ -244,7 +298,7 @@ export const Dashboard: React.FC = () => {
             subLabel="Rate today's meal"
             color="bg-emerald-50 dark:bg-emerald-900/20"
             iconColor="text-emerald-600 dark:text-emerald-400"
-            onClick={() => navigate('/mess')}
+            onClick={() => navigate("/mess")}
           />
           <MenuButton
             icon={Volume2}
@@ -252,7 +306,7 @@ export const Dashboard: React.FC = () => {
             subLabel="Latest updates"
             color="bg-blue-50 dark:bg-blue-900/20"
             iconColor="text-blue-600 dark:text-blue-400"
-            onClick={() => navigate('/announcements')}
+            onClick={() => navigate("/announcements")}
           />
           <MenuButton
             icon={Wrench}
@@ -260,7 +314,7 @@ export const Dashboard: React.FC = () => {
             subLabel="Request a repair"
             color="bg-purple-50 dark:bg-purple-900/20"
             iconColor="text-purple-600 dark:text-purple-400"
-            onClick={() => navigate('/maintenance')}
+            onClick={() => navigate("/maintenance")}
           />
           <MenuButton
             icon={Users}
@@ -268,7 +322,7 @@ export const Dashboard: React.FC = () => {
             subLabel="Events & Groups"
             color="bg-orange-50 dark:bg-orange-900/20"
             iconColor="text-orange-600 dark:text-orange-400"
-            onClick={() => navigate('/community')}
+            onClick={() => navigate("/community")}
           />
         </div>
       </div>
