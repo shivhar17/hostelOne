@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Camera, ThumbsUp, ThumbsDown, Meh, ImageIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getNutritionalInfo } from '../services/geminiService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 
 const TabButton = ({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) => (
   <button 
@@ -61,26 +63,53 @@ export const MessMenu: React.FC = () => {
   });
 
   useEffect(() => {
-    const savedMenu = localStorage.getItem('messMenuData');
-    if (savedMenu) {
-        try {
-            const parsed = JSON.parse(savedMenu);
-            // Check if it matches expected structure and normalize
-            const normalize = (items: any[]): MenuItem[] => 
-                items.map(i => (typeof i === 'string' ? { name: i } : i));
+    const loadForTab = async () => {
+      try {
+        const dateObj = new Date();
+        if (activeTab === 'Yesterday') dateObj.setDate(dateObj.getDate() - 1);
+        if (activeTab === 'Tomorrow') dateObj.setDate(dateObj.getDate() + 1);
 
-            if (parsed.breakfast || parsed.lunch || parsed.dinner) {
-                setMenu({
-                    breakfast: normalize(parsed.breakfast || []),
-                    lunch: normalize(parsed.lunch || []),
-                    dinner: normalize(parsed.dinner || [])
-                });
-            }
-        } catch (e) {
-            console.error("Failed to parse menu data", e);
+        const dateKey = dateObj.toISOString().split('T')[0];
+
+        // Try Firestore first (messMenu collection, doc id = dateKey)
+        const ref = doc(db, 'messMenu', dateKey);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+          const data = snap.data() as any;
+          const fromDb = (data.menu || data) as MenuData;
+          const normalize = (items: any[]): MenuItem[] => items.map(i => (typeof i === 'string' ? { name: i } : i));
+          setMenu({
+            breakfast: normalize(fromDb.breakfast || []),
+            lunch: normalize(fromDb.lunch || []),
+            dinner: normalize(fromDb.dinner || []),
+          });
+          return;
         }
-    }
-  }, []);
+
+        // Fallback to localStorage for older installs
+        const savedMenu = localStorage.getItem('messMenuData');
+        if (savedMenu) {
+          try {
+            const parsed = JSON.parse(savedMenu);
+            const normalize = (items: any[]): MenuItem[] => items.map(i => (typeof i === 'string' ? { name: i } : i));
+            if (parsed.breakfast || parsed.lunch || parsed.dinner) {
+              setMenu({
+                breakfast: normalize(parsed.breakfast || []),
+                lunch: normalize(parsed.lunch || []),
+                dinner: normalize(parsed.dinner || []),
+              });
+            }
+          } catch (e) {
+            console.error('Failed to parse menu data', e);
+          }
+        }
+      } catch (e) {
+        console.error('Failed loading mess menu', e);
+      }
+    };
+
+    loadForTab();
+  }, [activeTab]);
 
   const fetchNutrition = async () => {
     setLoadingNutrition(true);
