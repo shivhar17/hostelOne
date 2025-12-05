@@ -49,6 +49,9 @@ export const Profile: React.FC = () => {
         // ignore
       }
     }
+//     setUserProfile({ name, photo });
+//   setStudentId(id);
+// }, []);
 
     return {
       name,

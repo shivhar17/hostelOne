@@ -12,7 +12,13 @@ import {
   BedDouble,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { doc, onSnapshot } from "firebase/firestore";
+import {
+  doc,
+  onSnapshot,
+  collection,
+  query,
+  orderBy,
+} from "firebase/firestore";
 import { db } from "../firebase";
 
 interface MenuData {
@@ -23,6 +29,7 @@ interface MenuData {
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
+
   const [isDarkMode, setIsDarkMode] = useState(() => {
     if (typeof window !== "undefined") {
       return (
@@ -39,17 +46,21 @@ export const Dashboard: React.FC = () => {
     photo: "https://picsum.photos/100/100?random=10",
   });
 
-  // 🔹 realtime mess menu state
+  const [studentId, setStudentId] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // realtime mess menu
   const [menu, setMenu] = useState<MenuData | null>(null);
   const [menuLoading, setMenuLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  // pull to refresh state (for your animation)
+  // pull-to-refresh
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const startY = useRef(0);
 
+  // theme
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
@@ -60,18 +71,35 @@ export const Dashboard: React.FC = () => {
     }
   }, [isDarkMode]);
 
+  // load user + studentId
   useEffect(() => {
-    const saved = localStorage.getItem("userProfile");
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      setUserProfile({
-        name: parsed.name || "Student",
-        photo: parsed.photo || "https://picsum.photos/100/100?random=10",
-      });
+    const savedProfile = localStorage.getItem("userProfile");
+    const savedStudent = localStorage.getItem("student");
+
+    let name = "Student";
+    let photo = "https://picsum.photos/100/100?random=10";
+    let id: string | null = null;
+
+    if (savedProfile) {
+      try {
+        const parsed = JSON.parse(savedProfile);
+        name = parsed.name || name;
+        photo = parsed.photo || photo;
+        id = parsed.id || null;
+      } catch {}
+    } else if (savedStudent) {
+      try {
+        const parsed = JSON.parse(savedStudent);
+        name = parsed.name || name;
+        id = parsed.studentId || null;
+      } catch {}
     }
+
+    setUserProfile({ name, photo });
+    setStudentId(id);
   }, []);
 
-  // 🔹 REALTIME LISTENER – messMenu/today
+  // realtime mess menu listener
   useEffect(() => {
     const ref = doc(db, "messMenu", "today");
 
@@ -103,12 +131,42 @@ export const Dashboard: React.FC = () => {
     );
 
     return () => unsub();
-  }, [refreshKey]); // still re-attaches after pull-to-refresh animation
+  }, [refreshKey]);
+
+  // realtime unread announcements count
+  useEffect(() => {
+    if (!studentId) return;
+
+    const q = query(
+      collection(db, "announcements"),
+      orderBy("createdAt", "desc")
+    );
+
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        let count = 0;
+        snapshot.forEach((docSnap) => {
+          const data = docSnap.data() as any;
+          const readBy: string[] = data.readBy || [];
+          if (!readBy.includes(studentId)) {
+            count += 1;
+          }
+        });
+        setUnreadCount(count);
+      },
+      (err) => {
+        console.error("announcement badge error", err);
+      }
+    );
+
+    return () => unsub();
+  }, [studentId]);
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
   const getFirstName = (fullName: string) => fullName.split(" ")[0];
 
-  // pull-to-refresh handlers (unchanged)
+  // pull-to-refresh handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     const scrollParent = (e.currentTarget as HTMLElement).closest(
       ".overflow-y-auto"
@@ -124,9 +182,13 @@ export const Dashboard: React.FC = () => {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (startY.current === 0 || isRefreshing) return;
+
     const currentY = e.touches[0].clientY;
     const diff = currentY - startY.current;
-    if (diff > 0) setPullY(Math.min(diff * 0.4, 80));
+
+    if (diff > 0) {
+      setPullY(Math.min(diff * 0.4, 80));
+    }
   };
 
   const handleTouchEnd = () => {
@@ -135,15 +197,19 @@ export const Dashboard: React.FC = () => {
     if (pullY > 50) {
       setIsRefreshing(true);
       setPullY(50);
-      setTimeout(() => {
-        setIsRefreshing(false);
-        setPullY(0);
-        setRefreshKey((prev) => prev + 1); // just to replay the animation
-      }, 1500);
+      performRefresh();
     } else {
       setPullY(0);
     }
     startY.current = 0;
+  };
+
+  const performRefresh = () => {
+    setTimeout(() => {
+      setIsRefreshing(false);
+      setPullY(0);
+      setRefreshKey((prev) => prev + 1);
+    }, 1500);
   };
 
   const breakfastText =
@@ -185,8 +251,9 @@ export const Dashboard: React.FC = () => {
       </div>
 
       <div className="pt-12 px-6">
-        {/* header */}
+        {/* Header */}
         <div className="flex justify-between items-center mb-8">
+          {/* Logo */}
           <div className="flex items-center gap-2">
             <div className="bg-cyan-500 p-2 rounded-xl text-white shadow-md shadow-cyan-200 dark:shadow-none relative">
               <BedDouble size={22} strokeWidth={2.5} />
@@ -224,16 +291,11 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2 transition-colors">
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-8 transition-colors">
           Good Morning, {getFirstName(userProfile.name)}!
         </h1>
-        {lastUpdated && (
-          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
-            Mess menu updated on {lastUpdated}
-          </p>
-        )}
 
-        {/* Today’s Menu card */}
+        {/* Menu Card */}
         <motion.div
           key={refreshKey}
           initial={{ y: 20, opacity: 0 }}
@@ -245,47 +307,44 @@ export const Dashboard: React.FC = () => {
 
           <div className="relative z-10">
             <div className="flex justify-between items-start mb-4">
-              <div className="bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full uppercase tracking-wide">
-                Today's Menu
+              <div className="bg-emerald-50 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-200 text-xs font-bold px-3 py-1 rounded-full">
+                Today&apos;s Menu
               </div>
-              <img
-                src={`https://picsum.photos/150/150?random=food${refreshKey}`}
-                className="w-20 h-20 object-cover rounded-full shadow-md border-4 border-white dark:border-slate-700"
-                alt="Food"
-              />
+              {lastUpdated && (
+                <span className="text-[11px] text-slate-400">
+                  Updated: {lastUpdated}
+                </span>
+              )}
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase block mb-1">
-                  Breakfast
-                </span>
-                <p className="text-slate-700 dark:text-slate-200 font-medium">
-                  {menuLoading ? "Loading..." : breakfastText}
-                </p>
-              </div>
-              <div>
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-semibold uppercase block mb-1">
-                  Lunch
-                </span>
-                <p className="text-slate-700 dark:text-slate-200 font-medium">
-                  {menuLoading ? "Loading..." : lunchText}
-                </p>
-              </div>
+            {/* Breakfast */}
+            <div className="mb-3">
+              <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                Breakfast
+              </p>
+              <p className="text-sm text-slate-700 dark:text-slate-100">
+                {menuLoading ? "Loading..." : breakfastText}
+              </p>
             </div>
 
-            <div className="mt-5 text-teal-500 dark:text-teal-400 font-semibold text-sm flex items-center gap-1">
-              View full menu <ArrowRight size={16} />
+            {/* Lunch */}
+            <div>
+              <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold mb-1">
+                Lunch
+              </p>
+              <p className="text-sm text-slate-700 dark:text-slate-100">
+                {menuLoading ? "Loading..." : lunchText}
+              </p>
             </div>
           </div>
         </motion.div>
 
-        {/* rest of your grid buttons – unchanged */}
+        {/* Quick Actions Grid */}
         <div className="grid grid-cols-2 gap-4">
           <MenuButton
             icon={Utensils}
             label="Mess Menu"
-            subLabel="Rate today's meal"
+            subLabel="View today's food"
             color="bg-emerald-50 dark:bg-emerald-900/20"
             iconColor="text-emerald-600 dark:text-emerald-400"
             onClick={() => navigate("/mess")}
@@ -297,6 +356,7 @@ export const Dashboard: React.FC = () => {
             color="bg-blue-50 dark:bg-blue-900/20"
             iconColor="text-blue-600 dark:text-blue-400"
             onClick={() => navigate("/announcements")}
+            badgeCount={unreadCount}
           />
           <MenuButton
             icon={Wrench}
@@ -327,6 +387,7 @@ interface MenuButtonProps {
   color: string;
   iconColor: string;
   onClick: () => void;
+  badgeCount?: number;
 }
 
 const MenuButton: React.FC<MenuButtonProps> = ({
@@ -336,12 +397,20 @@ const MenuButton: React.FC<MenuButtonProps> = ({
   color,
   iconColor,
   onClick,
+  badgeCount = 0,
 }) => (
   <motion.button
     whileTap={{ scale: 0.98 }}
     onClick={onClick}
-    className={`${color} p-5 rounded-[1.5rem] flex flex-col items-start text-left h-40 justify-between transition-all hover:shadow-md border border-transparent dark:border-white/5`}
+    className={`${color} relative p-5 rounded-[1.5rem] flex flex-col items-start text-left h-40 justify-between transition-all hover:shadow-md border border-transparent dark:border-white/5`}
   >
+    {/* Badge */}
+    {badgeCount > 0 && (
+      <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+        {badgeCount}
+      </div>
+    )}
+
     <div className="bg-white dark:bg-slate-800 p-2.5 rounded-full shadow-sm transition-colors">
       <Icon className={iconColor} size={24} />
     </div>
@@ -355,4 +424,3 @@ const MenuButton: React.FC<MenuButtonProps> = ({
     </div>
   </motion.button>
 );
-
