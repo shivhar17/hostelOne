@@ -44,7 +44,6 @@ export const Login: React.FC = () => {
 
     // STAFF LOGIN (no DB check yet – just navigate)
     if (isStaffLogin) {
-      // here you could add real staff auth later
       navigate("/staff-dashboard");
       return;
     }
@@ -89,8 +88,23 @@ export const Login: React.FC = () => {
         studentData = newStudent;
       }
 
-      // Save session
+      // ✅ Save session for student (for other pages)
       localStorage.setItem("student", JSON.stringify(studentData));
+
+      // ✅ ALSO save a userProfile used by Dashboard + Profile
+      const defaultPhoto = "https://picsum.photos/100/100?random=10";
+
+      const userProfile = {
+        name: studentData.name,
+        id: studentData.studentId,
+        photo: defaultPhoto,
+        // sensible defaults – user can edit later in Profile
+        roomNo: "A-101",
+        messPlan: "Veg - Full Plan",
+        contactNo: "+91 00000 00000",
+      };
+
+      localStorage.setItem("userProfile", JSON.stringify(userProfile));
 
       alert(`✅ Login Successful!\nYour Student ID: ${studentData.studentId}`);
 
