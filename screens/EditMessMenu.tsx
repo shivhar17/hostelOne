@@ -95,8 +95,10 @@ export const EditMessMenu: React.FC = () => {
 
     try {
       // 1) Save in Firestore — shared for all students
-      await setDoc(doc(db, "messMenu", date), {
-        date,
+      // Use normalized date key (YYYY-MM-DD) to ensure consistent doc id
+      const todayKey = new Date().toISOString().split("T")[0];
+      await setDoc(doc(db, "messMenu", todayKey), {
+        date: todayKey,
         menu: cleanMenu,
         updatedAt: serverTimestamp(),
       });
