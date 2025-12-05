@@ -1,0 +1,8 @@
+{
+  "name": "HostelOne",
+  "description": "Your one-stop app for making hostel life easier, more connected, and a lot more fun.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
