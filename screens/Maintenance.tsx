@@ -5,9 +5,12 @@ import { useNavigate } from "react-router-dom";
 
 export default function Maintenance() {
   const navigate = useNavigate();
+  const student = JSON.parse(localStorage.getItem("student") || "{}");
+  const [studentId, setStudentId] = useState(student?.studentId || "");
+
 
   const [room, setRoom] = useState("");
-  const [studentId, setStudentId] = useState("");
+ 
   const [category, setCategory] = useState("Electricity");
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);

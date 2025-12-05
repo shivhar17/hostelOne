@@ -1,123 +1,168 @@
-import { useNavigate } from "react-router-dom";
-
-import { useEffect, useState } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
-export default function StudentComplaints() {
-    const navigate = useNavigate();
+import React, { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Edit2, Download, ChevronDown } from "lucide-react";
 
-  const [studentId, setStudentId] = useState("");
-  const [complaints, setComplaints] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+export const StudentProfile: React.FC = () => {
+  // ✅ Logged-in student from localStorage (Login Data)
+  const loggedStudent = JSON.parse(localStorage.getItem("student") || "{}");
 
-  const fetchComplaints = () => {
-    if (!studentId) {
-      alert("Please enter your Student ID");
-      return;
-    }
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const [isEditing, setIsEditing] = useState(false);
 
-    setLoading(true);
+  // ✅ Firestore Student Profile State
+  const [profile, setProfile] = useState<any>({
+    name: loggedStudent?.name || "Loading...",
+    id: loggedStudent?.studentId || id,
+    email: loggedStudent?.email || "",
+    photo: "",
+    gender: "Male",
+    dob: "01 Jan 2000",
+    room: "",
+    roomType: "Double AC",
+    block: "Block B",
+    roommate: "None",
+    checkIn: "20 July 2023",
+    phone: "",
+    emergency: "",
+    parent: "",
+    parentPhone: "",
+    status: "Paid",
+    messPreference: "Veg",
+  });
 
-    const q = query(
-      collection(db, "complaints"),
-      where("studentId", "==", studentId)
-    );
+  // ✅ Edit Form State
+  const [editForm, setEditForm] = useState({
+    room: "",
+    phone: "",
+    messPreference: "Veg",
+    status: "Paid",
+  });
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+  // ✅ Fetch Student From Firestore
+  useEffect(() => {
+    if (!profile.id) return;
 
-      setComplaints(data);
-      setLoading(false);
+    const fetchStudent = async () => {
+      const ref = doc(db, "students", profile.id);
+      const snap = await getDoc(ref);
+
+      if (snap.exists()) {
+        const data = snap.data();
+        setProfile({ ...profile, ...data });
+
+        setEditForm({
+          room: data.room || "",
+          phone: data.phone || "",
+          messPreference: data.messPreference || "Veg",
+          status: data.status || "Paid",
+        });
+      }
+    };
+
+    fetchStudent();
+  }, [profile.id]);
+
+  // ✅ Save Updated Profile
+  const handleSave = async () => {
+    if (!profile.id) return;
+
+    const updatedProfile = {
+      ...profile,
+      room: editForm.room,
+      phone: editForm.phone,
+      messPreference: editForm.messPreference,
+      status: editForm.status,
+    };
+
+    setProfile(updatedProfile);
+
+    const ref = doc(db, "students", profile.id);
+    await updateDoc(ref, {
+      room: editForm.room,
+      phone: editForm.phone,
+      messPreference: editForm.messPreference,
+      status: editForm.status,
     });
 
-    return () => unsub();
+    alert("Profile updated ✅");
+    setIsEditing(false);
   };
 
-  const getStatusColor = (status: string) => {
-    if (status === "Pending") return "bg-yellow-500/20 text-yellow-400";
-    if (status === "In Progress") return "bg-blue-500/20 text-blue-400";
-    if (status === "Resolved") return "bg-emerald-500/20 text-emerald-400";
-    return "bg-slate-500/20 text-slate-400";
-  };
-
-  return (
-    <div className="min-h-screen bg-[#0F172A] text-white p-6">
-      <div className="flex items-center gap-3 mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-lg"
-        >
+  // ✅ EDIT MODE UI
+  if (isEditing) {
+    return (
+      <div className="min-h-screen bg-[#0F172A] text-white p-6">
+        <button onClick={() => setIsEditing(false)} className="mb-4">
           ⬅ Back
         </button>
 
-        <h2 className="text-2xl font-bold">
-          📋 My Maintenance Complaints
-        </h2>
-      </div>
+        <h2 className="text-xl font-bold mb-6">Edit Profile</h2>
 
-      {/* Student ID Input */}
-      <div className="max-w-md mx-auto mb-6 bg-[#1E293B] p-4 rounded-xl">
-        <label className="text-sm text-slate-400">Enter Your Student ID</label>
         <input
-          type="text"
-          value={studentId}
-          onChange={(e) => setStudentId(e.target.value)}
-          placeholder="e.g. 21BCE001"
-          className="w-full mt-1 p-2 rounded-lg bg-[#0F172A] border border-slate-700 outline-none"
+          value={editForm.room}
+          onChange={(e) => setEditForm({ ...editForm, room: e.target.value })}
+          placeholder="Room"
+          className="w-full mb-3 p-2 rounded text-black"
         />
 
-        <button
-          onClick={fetchComplaints}
-          className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 rounded-lg"
+        <input
+          value={editForm.phone}
+          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+          placeholder="Phone"
+          className="w-full mb-3 p-2 rounded text-black"
+        />
+
+        <select
+          value={editForm.messPreference}
+          onChange={(e) =>
+            setEditForm({ ...editForm, messPreference: e.target.value })
+          }
+          className="w-full mb-3 p-2 rounded text-black"
         >
-          View My Complaints
+          <option>Veg</option>
+          <option>Non-Veg</option>
+          <option>Jain</option>
+        </select>
+
+        <button
+          onClick={handleSave}
+          className="bg-green-500 px-4 py-2 rounded"
+        >
+          Save
         </button>
       </div>
+    );
+  }
 
-      {/* Complaint List */}
-      <div className="max-w-md mx-auto space-y-4">
-        {loading && <p className="text-center text-slate-400">Loading...</p>}
-
-        {!loading && complaints.length === 0 && (
-          <p className="text-center text-slate-400">
-            No complaints found for this ID.
-          </p>
-        )}
-
-        {complaints.map((c) => (
-          <div
-            key={c.id}
-            className="bg-[#1E293B] p-4 rounded-xl border border-slate-700"
-          >
-            <div className="flex justify-between mb-2">
-              <span className="text-xs text-slate-400">
-                Room: {c.room}
-              </span>
-              <span
-                className={`text-xs px-2 py-1 rounded-full ${getStatusColor(
-                  c.status
-                )}`}
-              >
-                {c.status}
-              </span>
-            </div>
-
-            <h3 className="font-bold mb-1">{c.description}</h3>
-
-            <p className="text-xs text-slate-400">
-              Category: {c.category}
-            </p>
-
-            <p className="text-xs text-slate-500 mt-1">
-              Submitted on: {c.date}
-            </p>
-          </div>
-        ))}
+  // ✅ VIEW MODE UI
+  return (
+    <div className="min-h-screen bg-[#0F172A] text-white p-6">
+      <div className="flex items-center justify-between mb-6">
+        <button onClick={() => navigate(-1)}>⬅ Back</button>
+        <button onClick={() => setIsEditing(true)}>✏ Edit</button>
       </div>
+
+      <h2 className="text-2xl font-bold mb-2">{profile.name}</h2>
+      <p className="text-gray-400 mb-1">
+        Student ID: {loggedStudent.studentId}
+      </p>
+      <p className="text-gray-400 mb-4">Email: {loggedStudent.email}</p>
+
+      <div className="space-y-2">
+        <p>🏠 Room: {profile.room}</p>
+        <p>🍽 Mess Preference: {profile.messPreference}</p>
+        <p>📱 Phone: {profile.phone}</p>
+        <p>💰 Fee Status: {profile.status}</p>
+      </div>
+
+      <button className="mt-6 bg-slate-700 px-4 py-2 rounded flex items-center gap-2">
+        <Download size={16} /> Download Fee Receipt
+      </button>
     </div>
   );
-}
+};
+
