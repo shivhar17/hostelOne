@@ -19,11 +19,11 @@ import { db } from "../firebase";
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const [isStaffLogin, setIsStaffLogin] = useState(false);
-
   const [formData, setFormData] = useState({
     name: "",
     email: "",
   });
+  const [submitting, setSubmitting] = useState(false);
 
   // Generate random student id
   const generateStudentId = () => {
@@ -49,6 +49,7 @@ export const Login: React.FC = () => {
     }
 
     try {
+      setSubmitting(true);
       const studentsCol = collection(db, "students");
 
       // 1. Look for existing student by email
@@ -118,6 +119,8 @@ export const Login: React.FC = () => {
     } catch (err) {
       console.error(err);
       alert("❌ Login failed");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -187,9 +190,10 @@ export const Login: React.FC = () => {
       <div className="mt-8 mb-4">
         <button
           onClick={handleLogin}
-          className="w-full bg-teal-500 hover:bg-teal-600 text-white py-3 rounded-xl text-sm font-semibold transition-colors"
+          disabled={submitting}
+          className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors ${submitting ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-teal-500 hover:bg-teal-600 text-white'}`}
         >
-          {isStaffLogin ? "Login as Staff" : "Login as Student"}
+          {submitting ? 'Logging in...' : (isStaffLogin ? 'Login as Staff' : 'Login as Student')}
         </button>
       </div>
     </div>
