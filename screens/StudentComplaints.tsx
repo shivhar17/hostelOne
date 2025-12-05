@@ -1,168 +1,150 @@
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { collection, query, where, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 
-import React, { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Edit2, Download, ChevronDown } from "lucide-react";
+type StudentSession = {
+  studentId: string;
+  name: string;
+  email: string;
+};
 
-export const StudentProfile: React.FC = () => {
-  // ✅ Logged-in student from localStorage (Login Data)
-  const loggedStudent = JSON.parse(localStorage.getItem("student") || "{}");
+type Complaint = {
+  id: string;
+  title: string;
+  category: string;
+  room: string;
+  details: string;
+  status: string;
+  studentId: string;
+  createdAt: any;
+};
 
+const StudentComplaints: React.FC = () => {
   const navigate = useNavigate();
-  const { id } = useParams();
-  const [isEditing, setIsEditing] = useState(false);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // ✅ Firestore Student Profile State
-  const [profile, setProfile] = useState<any>({
-    name: loggedStudent?.name || "Loading...",
-    id: loggedStudent?.studentId || id,
-    email: loggedStudent?.email || "",
-    photo: "",
-    gender: "Male",
-    dob: "01 Jan 2000",
-    room: "",
-    roomType: "Double AC",
-    block: "Block B",
-    roommate: "None",
-    checkIn: "20 July 2023",
-    phone: "",
-    emergency: "",
-    parent: "",
-    parentPhone: "",
-    status: "Paid",
-    messPreference: "Veg",
-  });
-
-  // ✅ Edit Form State
-  const [editForm, setEditForm] = useState({
-    room: "",
-    phone: "",
-    messPreference: "Veg",
-    status: "Paid",
-  });
-
-  // ✅ Fetch Student From Firestore
   useEffect(() => {
-    if (!profile.id) return;
+    const stored = localStorage.getItem("student");
+    if (!stored) {
+      alert("Student session not found. Please log in again.");
+      navigate("/login");
+      return;
+    }
 
-    const fetchStudent = async () => {
-      const ref = doc(db, "students", profile.id);
-      const snap = await getDoc(ref);
+    const student: StudentSession = JSON.parse(stored);
+    const q = query(
+      collection(db, "complaints"),
+      where("studentId", "==", student.studentId)
+    );
 
-      if (snap.exists()) {
-        const data = snap.data();
-        setProfile({ ...profile, ...data });
-
-        setEditForm({
-          room: data.room || "",
-          phone: data.phone || "",
-          messPreference: data.messPreference || "Veg",
-          status: data.status || "Paid",
-        });
-      }
-    };
-
-    fetchStudent();
-  }, [profile.id]);
-
-  // ✅ Save Updated Profile
-  const handleSave = async () => {
-    if (!profile.id) return;
-
-    const updatedProfile = {
-      ...profile,
-      room: editForm.room,
-      phone: editForm.phone,
-      messPreference: editForm.messPreference,
-      status: editForm.status,
-    };
-
-    setProfile(updatedProfile);
-
-    const ref = doc(db, "students", profile.id);
-    await updateDoc(ref, {
-      room: editForm.room,
-      phone: editForm.phone,
-      messPreference: editForm.messPreference,
-      status: editForm.status,
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Complaint[];
+      setComplaints(data.sort((a, b) => b.createdAt - a.createdAt));
+      setLoading(false);
     });
 
-    alert("Profile updated ✅");
-    setIsEditing(false);
+    return () => unsub();
+  }, [navigate]);
+
+  const getStatusIcon = (status: string) => {
+    if (status === "Resolved") return <CheckCircle size={20} className="text-emerald-500" />;
+    if (status === "In Progress") return <Clock size={20} className="text-blue-500" />;
+    return <AlertCircle size={20} className="text-yellow-500" />;
   };
 
-  // ✅ EDIT MODE UI
-  if (isEditing) {
-    return (
-      <div className="min-h-screen bg-[#0F172A] text-white p-6">
-        <button onClick={() => setIsEditing(false)} className="mb-4">
-          ⬅ Back
-        </button>
+  const getStatusColor = (status: string) => {
+    if (status === "Resolved") return "bg-emerald-50 dark:bg-emerald-950 border-emerald-200 dark:border-emerald-800";
+    if (status === "In Progress") return "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800";
+    return "bg-yellow-50 dark:bg-yellow-950 border-yellow-200 dark:border-yellow-800";
+  };
 
-        <h2 className="text-xl font-bold mb-6">Edit Profile</h2>
-
-        <input
-          value={editForm.room}
-          onChange={(e) => setEditForm({ ...editForm, room: e.target.value })}
-          placeholder="Room"
-          className="w-full mb-3 p-2 rounded text-black"
-        />
-
-        <input
-          value={editForm.phone}
-          onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-          placeholder="Phone"
-          className="w-full mb-3 p-2 rounded text-black"
-        />
-
-        <select
-          value={editForm.messPreference}
-          onChange={(e) =>
-            setEditForm({ ...editForm, messPreference: e.target.value })
-          }
-          className="w-full mb-3 p-2 rounded text-black"
-        >
-          <option>Veg</option>
-          <option>Non-Veg</option>
-          <option>Jain</option>
-        </select>
-
-        <button
-          onClick={handleSave}
-          className="bg-green-500 px-4 py-2 rounded"
-        >
-          Save
-        </button>
-      </div>
-    );
-  }
-
-  // ✅ VIEW MODE UI
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white p-6">
-      <div className="flex items-center justify-between mb-6">
-        <button onClick={() => navigate(-1)}>⬅ Back</button>
-        <button onClick={() => setIsEditing(true)}>✏ Edit</button>
+    <div className="min-h-screen bg-white dark:bg-slate-950 px-6 py-6 flex flex-col">
+      {/* Top bar */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="rounded-full p-1 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <ArrowLeft size={22} />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+            My Complaints
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            View all your submitted complaints
+          </p>
+        </div>
       </div>
 
-      <h2 className="text-2xl font-bold mb-2">{profile.name}</h2>
-      <p className="text-gray-400 mb-1">
-        Student ID: {loggedStudent.studentId}
-      </p>
-      <p className="text-gray-400 mb-4">Email: {loggedStudent.email}</p>
+      {/* Complaints List */}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <p className="text-slate-500 dark:text-slate-400">Loading complaints...</p>
+        </div>
+      ) : complaints.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12">
+          <AlertCircle size={40} className="text-slate-400 dark:text-slate-600 mb-3" />
+          <p className="text-slate-600 dark:text-slate-400 font-medium">No complaints yet</p>
+          <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+            Your submitted complaints will appear here
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {complaints.map((complaint) => (
+            <div
+              key={complaint.id}
+              className={`rounded-xl border p-4 ${getStatusColor(complaint.status)}`}
+            >
+              <div className="flex items-start justify-between mb-2">
+                <h3 className="font-semibold text-slate-900 dark:text-slate-100 flex-1">
+                  {complaint.title}
+                </h3>
+                <div className="ml-2">{getStatusIcon(complaint.status)}</div>
+              </div>
 
-      <div className="space-y-2">
-        <p>🏠 Room: {profile.room}</p>
-        <p>🍽 Mess Preference: {profile.messPreference}</p>
-        <p>📱 Phone: {profile.phone}</p>
-        <p>💰 Fee Status: {profile.status}</p>
-      </div>
+              <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Category:</span>
+                  <p className="text-slate-700 dark:text-slate-300 font-medium capitalize">
+                    {complaint.category}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-slate-500 dark:text-slate-400">Room:</span>
+                  <p className="text-slate-700 dark:text-slate-300 font-medium">
+                    {complaint.room || "N/A"}
+                  </p>
+                </div>
+              </div>
 
-      <button className="mt-6 bg-slate-700 px-4 py-2 rounded flex items-center gap-2">
-        <Download size={16} /> Download Fee Receipt
-      </button>
+              <p className="text-xs text-slate-700 dark:text-slate-300 mb-2 line-clamp-2">
+                {complaint.details}
+              </p>
+
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  Status: <span className="font-semibold capitalize">{complaint.status}</span>
+                </span>
+                <span className="text-xs text-slate-400 dark:text-slate-500">
+                  {complaint.createdAt?.toDate?.()?.toLocaleDateString?.() || "N/A"}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
 
+export default StudentComplaints;

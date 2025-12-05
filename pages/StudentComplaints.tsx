@@ -1,1 +1,3 @@
-export { default } from "../screens/StudentComplaints";
+import StudentComplaints from "../screens/StudentComplaints";
+
+export default StudentComplaints;
