@@ -12,7 +12,7 @@ import { Profile } from './screens/Profile';
 import { StaffDashboard } from './screens/StaffDashboard';
 import { ComplaintDetail } from './screens/ComplaintDetail';
 import { EditMessMenu } from './screens/EditMessMenu';
-import { StudentDirectory } from './screens/StudentDirectory';
+import { StudentsDirectory } from './screens/StudentDirectory';
 import { StudentProfile } from './screens/StudentProfile';
 import { BottomNav } from './components/BottomNav';
 
@@ -56,7 +56,7 @@ const App: React.FC = () => {
           <Route path="/staff-dashboard" element={<StaffDashboard />} />
           <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
           <Route path="/staff/edit-menu" element={<EditMessMenu />} />
-          <Route path="/staff/students" element={<StudentDirectory />} />
+          <Route path="/staff/students" element={<StudentsDirectory />} />
           <Route path="/staff/student/:id" element={<StudentProfile />} />
         </Routes>
       </Layout>
