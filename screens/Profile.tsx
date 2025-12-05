@@ -25,6 +25,17 @@ export const Profile: React.FC = () => {
     let messPlan = 'Veg - Full Plan';
     let contactNo = '+91 12345 67890';
 
+    // Priority: savedStudent (from login) > savedProfile > defaults
+    if (savedStudent) {
+      try {
+        const parsed = JSON.parse(savedStudent);
+        name = parsed.name || name;
+        id = parsed.studentId || id;
+      } catch {
+        // ignore
+      }
+    }
+
     if (savedProfile) {
       try {
         const parsed = JSON.parse(savedProfile);
@@ -34,14 +45,6 @@ export const Profile: React.FC = () => {
         roomNo = parsed.roomNo || roomNo;
         messPlan = parsed.messPlan || messPlan;
         contactNo = parsed.contactNo || contactNo;
-      } catch {
-        // ignore
-      }
-    } else if (savedStudent) {
-      try {
-        const parsed = JSON.parse(savedStudent);
-        name = parsed.name || name;
-        id = parsed.studentId || id;
       } catch {
         // ignore
       }
@@ -212,7 +215,9 @@ export const Profile: React.FC = () => {
           )}
 
           {/* ✅ Student ID shown directly under name */}
-          <p className="text-slate-400 font-medium text-sm">{profile.id}</p>
+          <p className="text-slate-500 dark:text-slate-400 font-semibold text-sm mt-1">
+            {profile.id}
+          </p>
         </div>
       </div>
 
