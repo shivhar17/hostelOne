@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Eye,
-  EyeOff,
   ArrowLeftRight,
 } from "lucide-react";
 
@@ -19,15 +17,11 @@ import { db } from "../firebase";
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-
-  const [showPassword, setShowPassword] = useState(false);
   const [isStaffLogin, setIsStaffLogin] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
-    password: "",
-    code: "",
   });
 
   // Generate random student id
@@ -36,13 +30,13 @@ export const Login: React.FC = () => {
   };
 
   const handleLogin = async () => {
-    // simple validation
-    if (!formData.email || !formData.password) {
-      alert("Please enter email and password");
+    // Validation
+    if (!formData.email) {
+      alert("Please enter your email");
       return;
     }
 
-    // STAFF LOGIN (no DB check yet – just navigate)
+    // STAFF LOGIN
     if (isStaffLogin) {
       navigate("/staff-dashboard");
       return;
@@ -176,26 +170,6 @@ export const Login: React.FC = () => {
           }
           className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-transparent text-slate-900 dark:text-slate-100 text-sm outline-none"
         />
-
-        {/* Password with show/hide toggle */}
-        <div className="relative">
-          <input
-            type={showPassword ? "text" : "password"}
-            placeholder="Password"
-            value={formData.password}
-            onChange={(e) =>
-              setFormData({ ...formData, password: e.target.value })
-            }
-            className="w-full p-3 pr-10 border border-slate-300 dark:border-slate-700 rounded-xl bg-transparent text-slate-900 dark:text-slate-100 text-sm outline-none"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((prev) => !prev)}
-            className="absolute inset-y-0 right-3 flex items-center text-slate-500"
-          >
-            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-          </button>
-        </div>
       </div>
 
       {/* Login button */}
