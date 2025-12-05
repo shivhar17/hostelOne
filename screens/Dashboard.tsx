@@ -12,18 +12,13 @@ import {
   BedDouble,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 
-interface MenuItem {
-  name: string;
-  image?: string;
-}
-
 interface MenuData {
-  breakfast: MenuItem[];
-  lunch: MenuItem[];
-  dinner: MenuItem[];
+  breakfast: string[];
+  lunch: string[];
+  dinner: string[];
 }
 
 export const Dashboard: React.FC = () => {
@@ -40,15 +35,16 @@ export const Dashboard: React.FC = () => {
   });
 
   const [userProfile, setUserProfile] = useState({
-    name: "Alex",
+    name: "Student",
     photo: "https://picsum.photos/100/100?random=10",
   });
 
-  // 🔹 Mess menu state (from Firestore)
+  // 🔹 realtime mess menu state
   const [menu, setMenu] = useState<MenuData | null>(null);
   const [menuLoading, setMenuLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<string | null>(null);
 
-  // Pull to refresh state
+  // pull to refresh state (for your animation)
   const [pullY, setPullY] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -69,52 +65,50 @@ export const Dashboard: React.FC = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       setUserProfile({
-        name: parsed.name || "Alex",
+        name: parsed.name || "Student",
         photo: parsed.photo || "https://picsum.photos/100/100?random=10",
       });
     }
   }, []);
 
-  // 🔹 Load today's menu from Firestore
+  // 🔹 REALTIME LISTENER – messMenu/today
   useEffect(() => {
-    const loadMenu = async () => {
-      setMenuLoading(true);
-      try {
-        const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
-        const ref = doc(db, "messMenu", today);
-        const snap = await getDoc(ref);
+    const ref = doc(db, "messMenu", "today");
 
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          const fromDb = (data.menu || data) as MenuData;
-
-          const normalize = (items: any[]): MenuItem[] =>
-            items.map((i) => (typeof i === "string" ? { name: i } : i));
-
-          setMenu({
-            breakfast: normalize(fromDb.breakfast || []),
-            lunch: normalize(fromDb.lunch || []),
-            dinner: normalize(fromDb.dinner || []),
-          });
-        } else {
-          setMenu(null);
-        }
-      } catch (e) {
-        console.error("Failed to load menu", e);
-        setMenu(null);
-      } finally {
+    const unsub = onSnapshot(
+      ref,
+      (snap) => {
         setMenuLoading(false);
-      }
-    };
 
-    loadMenu();
-  }, [refreshKey]); // re-load when user pulls to refresh
+        if (!snap.exists()) {
+          setMenu(null);
+          setLastUpdated(null);
+          return;
+        }
+
+        const data = snap.data() as any;
+        const breakfast = (data.breakFast || []) as string[];
+        const lunch = (data.Lunch || []) as string[];
+        const dinner = (data.dinner || []) as string[];
+
+        setMenu({ breakfast, lunch, dinner });
+        setLastUpdated(data.lastUpdated || null);
+      },
+      (error) => {
+        console.error("Menu listener error:", error);
+        setMenuLoading(false);
+        setMenu(null);
+        setLastUpdated(null);
+      }
+    );
+
+    return () => unsub();
+  }, [refreshKey]); // still re-attaches after pull-to-refresh animation
 
   const toggleDarkMode = () => setIsDarkMode(!isDarkMode);
-
   const getFirstName = (fullName: string) => fullName.split(" ")[0];
 
-  // Pull to refresh handlers
+  // pull-to-refresh handlers (unchanged)
   const handleTouchStart = (e: React.TouchEvent) => {
     const scrollParent = (e.currentTarget as HTMLElement).closest(
       ".overflow-y-auto"
@@ -130,13 +124,9 @@ export const Dashboard: React.FC = () => {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (startY.current === 0 || isRefreshing) return;
-
     const currentY = e.touches[0].clientY;
     const diff = currentY - startY.current;
-
-    if (diff > 0) {
-      setPullY(Math.min(diff * 0.4, 80));
-    }
+    if (diff > 0) setPullY(Math.min(diff * 0.4, 80));
   };
 
   const handleTouchEnd = () => {
@@ -145,29 +135,25 @@ export const Dashboard: React.FC = () => {
     if (pullY > 50) {
       setIsRefreshing(true);
       setPullY(50);
-      performRefresh();
+      setTimeout(() => {
+        setIsRefreshing(false);
+        setPullY(0);
+        setRefreshKey((prev) => prev + 1); // just to replay the animation
+      }, 1500);
     } else {
       setPullY(0);
     }
     startY.current = 0;
   };
 
-  const performRefresh = () => {
-    setTimeout(() => {
-      setIsRefreshing(false);
-      setPullY(0);
-      setRefreshKey((prev) => prev + 1); // this will re-trigger menu load
-    }, 1500);
-  };
-
   const breakfastText =
     menu && menu.breakfast.length > 0
-      ? menu.breakfast.map((b) => b.name).join(", ")
+      ? menu.breakfast.join(", ")
       : "Menu not published yet";
 
   const lunchText =
     menu && menu.lunch.length > 0
-      ? menu.lunch.map((l) => l.name).join(", ")
+      ? menu.lunch.join(", ")
       : "Menu not published yet";
 
   return (
@@ -177,7 +163,7 @@ export const Dashboard: React.FC = () => {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Refresh Indicator */}
+      {/* pull-to-refresh indicator */}
       <div
         style={{ height: `${pullY}px` }}
         className="overflow-hidden flex items-center justify-center transition-all duration-200 ease-out"
@@ -199,9 +185,8 @@ export const Dashboard: React.FC = () => {
       </div>
 
       <div className="pt-12 px-6">
-        {/* Header */}
+        {/* header */}
         <div className="flex justify-between items-center mb-8">
-          {/* Logo Section */}
           <div className="flex items-center gap-2">
             <div className="bg-cyan-500 p-2 rounded-xl text-white shadow-md shadow-cyan-200 dark:shadow-none relative">
               <BedDouble size={22} strokeWidth={2.5} />
@@ -239,11 +224,16 @@ export const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-8 transition-colors">
+        <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-2 transition-colors">
           Good Morning, {getFirstName(userProfile.name)}!
         </h1>
+        {lastUpdated && (
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-6">
+            Mess menu updated on {lastUpdated}
+          </p>
+        )}
 
-        {/* Menu Card */}
+        {/* Today’s Menu card */}
         <motion.div
           key={refreshKey}
           initial={{ y: 20, opacity: 0 }}
@@ -290,7 +280,7 @@ export const Dashboard: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Grid */}
+        {/* rest of your grid buttons – unchanged */}
         <div className="grid grid-cols-2 gap-4">
           <MenuButton
             icon={Utensils}
@@ -365,3 +355,4 @@ const MenuButton: React.FC<MenuButtonProps> = ({
     </div>
   </motion.button>
 );
+
