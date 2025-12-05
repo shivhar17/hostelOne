@@ -291,12 +291,47 @@ export const Profile: React.FC = () => {
           </div>
         </div>
 
-        {/* Achievements, Complaint history & Logout – unchanged from your version */}
-        {/* ... (keep your existing JSX here exactly as before) ... */}
-
-        {/* (for brevity I’m not repeating the rest – you can keep the Achievements,
-            Complaint History, and Logout dialog exactly as in your current file) */}
+        {/* Achievements, Complaint history & Logout */}
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-3xl shadow-sm space-y-4">
+          <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wide opacity-70">
+            Account
+          </h3>
+          
+          <button
+            onClick={handleLogoutClick}
+            className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white py-3 rounded-xl font-medium transition-colors"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-sm">
+            <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-2">Logout?</h3>
+            <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+              Are you sure you want to logout from your account?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutDialog(false)}
+                className="flex-1 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-medium hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-medium transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
