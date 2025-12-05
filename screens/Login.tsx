@@ -1,9 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  ArrowLeftRight,
-} from "lucide-react";
+import { ArrowLeft, ArrowLeftRight } from "lucide-react";
 
 import {
   collection,
@@ -11,6 +8,10 @@ import {
   getDocs,
   query,
   where,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  increment,
 } from "firebase/firestore";
 
 import { db } from "../firebase";
@@ -30,13 +31,12 @@ export const Login: React.FC = () => {
   };
 
   const handleLogin = async () => {
-    // Validation
     if (!formData.email) {
       alert("Please enter your email");
       return;
     }
 
-    // STAFF LOGIN
+    // STAFF LOGIN (you can later add real staff auth here)
     if (isStaffLogin) {
       navigate("/staff-dashboard");
       return;
@@ -49,37 +49,50 @@ export const Login: React.FC = () => {
     }
 
     try {
-      // 1. Look for existing student by email
-      const q = query(
-        collection(db, "students"),
-        where("email", "==", formData.email)
-      );
+      const studentsCol = collection(db, "students");
 
+      // 1. Look for existing student by email
+      const q = query(studentsCol, where("email", "==", formData.email));
       const snapshot = await getDocs(q);
 
       let studentData: any;
 
       if (!snapshot.empty) {
-        // Existing student
+        // ✅ Existing student → update login info
         const docSnap = snapshot.docs[0];
+        const ref = doc(db, "students", docSnap.id);
+
+        await updateDoc(ref, {
+          name: formData.name,                // allow name change
+          lastLogin: serverTimestamp(),
+          loginCount: increment(1),
+        });
+
+        const data = docSnap.data();
         studentData = {
-          studentId: docSnap.data().studentId,
-          name: docSnap.data().name,
-          email: docSnap.data().email,
+          studentId: data.studentId,
+          name: formData.name,
+          email: data.email,
         };
       } else {
-        // New student
+        // ✅ New student → create in Firestore
         const studentId = generateStudentId();
 
         const newStudent = {
           studentId,
           name: formData.name,
           email: formData.email,
-          createdAt: new Date(),
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          loginCount: 1,
         };
 
-        await addDoc(collection(db, "students"), newStudent);
-        studentData = newStudent;
+        const newDoc = await addDoc(studentsCol, newStudent);
+
+        studentData = {
+          ...newStudent,
+          id: newDoc.id,
+        };
       }
 
       // ✅ Save session for student (for other pages)
@@ -92,7 +105,6 @@ export const Login: React.FC = () => {
         name: studentData.name,
         id: studentData.studentId,
         photo: defaultPhoto,
-        // sensible defaults – user can edit later in Profile
         roomNo: "A-101",
         messPlan: "Veg - Full Plan",
         contactNo: "+91 00000 00000",
@@ -148,7 +160,6 @@ export const Login: React.FC = () => {
 
       {/* Form */}
       <div className="space-y-4 flex-1">
-        {/* Name only for student */}
         {!isStaffLogin && (
           <input
             type="text"

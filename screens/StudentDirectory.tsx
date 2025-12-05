@@ -1,113 +1,102 @@
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, Filter } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Search, Users } from "lucide-react";
+import { collection, onSnapshot, orderBy, query } from "firebase/firestore";
+import { db } from "../firebase";
 
 interface Student {
   id: string;
+  studentId: string;
   name: string;
-  room: string;
-  photo: string;
-  status: 'Paid' | 'Pending';
+  email: string;
+  lastLogin?: any;
+  loginCount?: number;
 }
 
-const INITIAL_STUDENTS: Student[] = [
-  { id: '21BCE1234', name: 'Rohan Sharma', room: 'B-304', photo: 'https://ui-avatars.com/api/?name=Rohan+Sharma&background=0D9488&color=fff', status: 'Paid' },
-  { id: '1', name: 'Ananya Sharma', room: 'A-301', photo: 'https://picsum.photos/100/100?random=20', status: 'Paid' },
-  { id: '2', name: 'Rohan Mehta', room: 'B-102', photo: 'https://picsum.photos/100/100?random=21', status: 'Paid' },
-  { id: '3', name: 'Priya Patel', room: 'C-405', photo: 'https://picsum.photos/100/100?random=22', status: 'Pending' },
-  { id: '4', name: 'Vikram Singh', room: 'A-301', photo: 'https://picsum.photos/100/100?random=23', status: 'Paid' },
-  { id: '5', name: 'Sameer Khan', room: 'D-211', photo: 'https://picsum.photos/100/100?random=24', status: 'Pending' },
-  { id: '6', name: 'Neha Gupta', room: 'B-105', photo: 'https://picsum.photos/100/100?random=25', status: 'Paid' },
-  { id: '7', name: 'Meera Patel', room: 'C-305', photo: 'https://picsum.photos/100/100?random=26', status: 'Paid' },
-];
-
-export const StudentDirectory: React.FC = () => {
+export const StudentsDirectory: React.FC = () => {
   const navigate = useNavigate();
-  const [searchQuery, setSearchQuery] = useState('');
   const [students, setStudents] = useState<Student[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem('allStudents');
-    if (saved) {
-        setStudents(JSON.parse(saved));
-    } else {
-        setStudents(INITIAL_STUDENTS);
-        localStorage.setItem('allStudents', JSON.stringify(INITIAL_STUDENTS));
-    }
+    const q = query(collection(db, "students"), orderBy("name"));
+    const unsub = onSnapshot(q, (snap) => {
+      const data: Student[] = snap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+      setStudents(data);
+    });
+
+    return () => unsub();
   }, []);
 
-  const filteredStudents = students.filter(student => 
-    student.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    student.room.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.id.includes(searchQuery)
-  );
+  const filtered = students.filter((s) => {
+    const term = search.toLowerCase();
+    return (
+      s.name.toLowerCase().includes(term) ||
+      s.studentId.toLowerCase().includes(term) ||
+      s.email.toLowerCase().includes(term)
+    );
+  });
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white flex flex-col">
+    <div className="min-h-screen bg-[#0F172A] text-white pb-24">
       {/* Header */}
-      <div className="px-6 pt-12 pb-6 bg-[#0F172A] border-b border-white/5 sticky top-0 z-20">
-        <h1 className="text-2xl font-bold mb-4">Student Directory</h1>
-        
-        <div className="flex gap-3">
-          <div className="flex-1 bg-[#1E293B] rounded-xl flex items-center px-4 py-3 border border-slate-700/50 focus-within:border-blue-500/50 transition-colors">
-             <Search size={20} className="text-slate-400 mr-3" />
-             <input 
-               type="text" 
-               placeholder="Search by Name / Room / ID" 
-               className="bg-transparent outline-none text-white placeholder:text-slate-500 w-full text-sm font-medium"
-               value={searchQuery}
-               onChange={(e) => setSearchQuery(e.target.value)}
-             />
-          </div>
-          <button className="bg-[#1E293B] p-3 rounded-xl border border-slate-700/50 hover:bg-slate-700 transition-colors">
-             <Filter size={20} className="text-slate-400" />
-          </button>
+      <div className="px-6 pt-12 pb-6 flex items-center gap-3 bg-[#0F172A] sticky top-0 z-20 shadow-sm border-b border-white/5">
+        <button
+          onClick={() => navigate(-1)}
+          className="p-2 -ml-2 hover:bg-slate-800 rounded-full transition-colors"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <div className="flex items-center gap-2">
+          <Users size={22} className="text-emerald-400" />
+          <h1 className="text-xl font-bold">Student Directory</h1>
         </div>
       </div>
 
-      {/* List Header */}
-      <div className="px-6 py-2 flex text-xs font-bold text-slate-500 uppercase tracking-wider">
-         <span className="flex-[3]">Photo & Name</span>
-         <span className="flex-1 text-center">Room No.</span>
-         <span className="flex-1 text-right">Fee Status</span>
+      {/* Search */}
+      <div className="px-6 mt-4 mb-4">
+        <div className="relative">
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+          />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, ID, or email"
+            className="w-full bg-[#1E293B] border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-sm outline-none focus:border-blue-500 transition-colors"
+          />
+        </div>
       </div>
 
-      {/* Student List */}
-      <div className="flex-1 px-6 pb-6 space-y-2">
-         {filteredStudents.map((student) => (
-           <div 
-             key={student.id} 
-             onClick={() => navigate(`/staff/student/${student.id}`)}
-             className="bg-[#1E293B]/50 hover:bg-[#1E293B] p-3 rounded-2xl flex items-center border border-transparent hover:border-slate-700 transition-all cursor-pointer group"
-           >
-              <div className="flex-[3] flex items-center gap-3">
-                 <img src={student.photo} className="w-10 h-10 rounded-full object-cover border border-slate-700" alt={student.name} />
-                 <div>
-                    <h3 className="font-bold text-sm text-white group-hover:text-blue-400 transition-colors">{student.name}</h3>
-                    <p className="text-[10px] text-slate-500 font-mono">ID: {student.id}</p>
-                 </div>
-              </div>
-              <div className="flex-1 text-center text-sm font-medium text-slate-300">
-                 {student.room}
-              </div>
-              <div className="flex-1 text-right">
-                 <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                    student.status === 'Paid' 
-                      ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20' 
-                      : 'bg-red-500/10 text-red-500 border border-red-500/20'
-                 }`}>
-                    {student.status}
-                 </span>
-              </div>
-           </div>
-         ))}
+      {/* List */}
+      <div className="px-6 space-y-3">
+        {filtered.length === 0 && (
+          <p className="text-slate-400 text-sm mt-6">
+            No students found. They will appear here after logging in.
+          </p>
+        )}
 
-         {filteredStudents.length === 0 && (
-           <div className="text-center py-12 text-slate-500">
-             No students found matching "{searchQuery}"
-           </div>
-         )}
+        {filtered.map((s) => (
+          <div
+            key={s.id}
+            className="bg-[#1E293B] border border-slate-700/60 rounded-xl p-4 flex justify-between items-center"
+          >
+            <div>
+              <p className="font-semibold">{s.name}</p>
+              <p className="text-xs text-slate-400">{s.email}</p>
+              <p className="text-xs text-emerald-400 mt-1">
+                ID: {s.studentId}
+              </p>
+            </div>
+            <div className="text-right text-xs text-slate-400">
+              <p>Logins: {s.loginCount ?? 1}</p>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
