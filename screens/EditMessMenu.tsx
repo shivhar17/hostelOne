@@ -8,8 +8,19 @@ import {
   Check,
   Camera,
 } from "lucide-react";
-import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+// import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
+// import { db } from "../firebase";
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  doc,
+  setDoc,
+  getDoc,
+} from "firebase/firestore";
 import { db } from "../firebase";
+
+
 
 interface MenuItem {
   name: string;
@@ -41,82 +52,91 @@ export const EditMessMenu: React.FC = () => {
 
   // Load existing menu for selected date (from Firestore, fallback to localStorage)
   useEffect(() => {
-    const loadMenu = async () => {
-      try {
-        // 1) Try Firestore for this date
-        const ref = doc(db, "messMenu", date);
-        const snap = await getDoc(ref);
-
-        if (snap.exists()) {
-          const data = snap.data() as any;
-          const fromDb = (data.menu || data) as MenuData;
-
-          const normalize = (items: any[]): MenuItem[] =>
-            items.map((i) => (typeof i === "string" ? { name: i } : i));
-
-          setMenu({
-            breakfast: normalize(fromDb.breakfast || []),
-            lunch: normalize(fromDb.lunch || []),
-            dinner: normalize(fromDb.dinner || []),
-          });
-          return;
-        }
-
-        // 2) Fallback: old localStorage (if any)
-        const savedMenu = localStorage.getItem("messMenuData");
-        if (savedMenu) {
-          const parsed = JSON.parse(savedMenu);
-          const normalize = (items: any[]): MenuItem[] =>
-            items.map((i) => (typeof i === "string" ? { name: i } : i));
-
-          if (parsed.breakfast || parsed.lunch || parsed.dinner) {
-            setMenu({
-              breakfast: normalize(parsed.breakfast || []),
-              lunch: normalize(parsed.lunch || []),
-              dinner: normalize(parsed.dinner || []),
-            });
-          }
-        }
-      } catch (e) {
-        console.error("Failed to load menu", e);
-      }
-    };
-
-    loadMenu();
-  }, [date]);
-
-  const handlePublish = async () => {
-    // remove empty items
-    const cleanMenu: MenuData = {
-      breakfast: menu.breakfast.filter((i) => i.name.trim() !== ""),
-      lunch: menu.lunch.filter((i) => i.name.trim() !== ""),
-      dinner: menu.dinner.filter((i) => i.name.trim() !== ""),
-    };
-
+  const loadMenu = async () => {
     try {
-      // Use normalized date key (YYYY-MM-DD) for document id so viewers can load by date
-      const todayKey = new Date().toISOString().split("T")[0];
+      // 🔹 Always load the shared "today" menu document
+      const ref = doc(db, "messMenu", "today");
+      const snap = await getDoc(ref);
 
-      // Save structured menu under messMenu/<YYYY-MM-DD>
-      await setDoc(doc(db, "messMenu", todayKey), {
-        date: todayKey,
-        menu: cleanMenu,
-        updatedAt: serverTimestamp(),
-      });
+      if (snap.exists()) {
+        const data = snap.data() as any;
+        // we saved breakFast, Lunch, dinner as arrays of strings
+        const normalize = (items: any[] = []) =>
+          items.map((i) => (typeof i === "string" ? { name: i } : i));
 
-      // optional local copy for the staff browser
-      localStorage.setItem("messMenuData", JSON.stringify(cleanMenu));
+        setMenu({
+          breakfast: normalize(data.breakFast || []),
+          lunch: normalize(data.Lunch || []),
+          dinner: normalize(data.dinner || []),
+        });
+        return;
+      }
 
-      setShowSuccess(true);
-      setTimeout(() => {
-        setShowSuccess(false);
-        navigate("/staff-dashboard");
-      }, 2000);
+      // 2) Fallback: old localStorage (if any)
+      const savedMenu = localStorage.getItem("messMenuData");
+      if (savedMenu) {
+        const parsed = JSON.parse(savedMenu);
+        const normalize = (items: any[] = []) =>
+          items.map((i) => (typeof i === "string" ? { name: i } : i));
+
+        setMenu({
+          breakfast: normalize(parsed.breakfast || []),
+          lunch: normalize(parsed.lunch || []),
+          dinner: normalize(parsed.dinner || []),
+        });
+      }
     } catch (e) {
-      console.error("Failed to publish menu", e);
-      alert("Failed to publish menu. Please try again.");
+      console.error("Failed to load menu", e);
     }
   };
+
+  loadMenu();
+}, []); // no need for [date] dependency now
+// no need for [date] dependency now
+
+
+  const handlePublish = async () => {
+  // remove empty items
+  const cleanMenu: MenuData = {
+    breakfast: menu.breakfast.filter((i) => i.name.trim() !== ""),
+    lunch: menu.lunch.filter((i) => i.name.trim() !== ""),
+    dinner: menu.dinner.filter((i) => i.name.trim() !== ""),
+  };
+
+  try {
+    // 🔥 Save menu to Firestore (shared doc for all students)
+    await setDoc(doc(db, "messMenu", "today"), {
+      breakFast: cleanMenu.breakfast.map((i) => i.name),
+      Lunch: cleanMenu.lunch.map((i) => i.name),
+      dinner: cleanMenu.dinner.map((i) => i.name),
+      lastUpdated: new Date().toLocaleDateString("en-GB"), // example: 15-03-2025
+      updatedAt: serverTimestamp(),
+    });
+
+    // 🔔 Create announcement entry for students
+    await addDoc(collection(db, "announcements"), {
+      title: "Mess Menu Updated",
+      message: "Today's mess menu has been updated. Check the Mess Menu section!",
+      type: "mess",
+      createdAt: serverTimestamp(),
+      readBy: [],
+    });
+
+    // optional cache for staff view only
+    localStorage.setItem("messMenuData", JSON.stringify(cleanMenu));
+
+    // success UI
+    setShowSuccess(true);
+    setTimeout(() => {
+      setShowSuccess(false);
+      navigate("/staff-dashboard");
+    }, 2000);
+  } catch (e) {
+    console.error("Failed to publish menu", e);
+    alert("Failed to publish menu. Please try again.");
+  }
+};
+
 
 
   const addItem = (meal: keyof MenuData) => {
