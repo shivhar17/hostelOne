@@ -86,7 +86,7 @@ export const EditMessMenu: React.FC = () => {
   }, [date]);
 
   const handlePublish = async () => {
-    // Filter out empty items before saving
+    // remove empty items
     const cleanMenu: MenuData = {
       breakfast: menu.breakfast.filter((i) => i.name.trim() !== ""),
       lunch: menu.lunch.filter((i) => i.name.trim() !== ""),
@@ -94,16 +94,17 @@ export const EditMessMenu: React.FC = () => {
     };
 
     try {
-      // 1) Save in Firestore — shared for all students
-      // Use normalized date key (YYYY-MM-DD) to ensure consistent doc id
+      // Use normalized date key (YYYY-MM-DD) for document id so viewers can load by date
       const todayKey = new Date().toISOString().split("T")[0];
+
+      // Save structured menu under messMenu/<YYYY-MM-DD>
       await setDoc(doc(db, "messMenu", todayKey), {
         date: todayKey,
         menu: cleanMenu,
         updatedAt: serverTimestamp(),
       });
 
-      // 2) Optional: also keep local copy for this staff browser
+      // optional local copy for the staff browser
       localStorage.setItem("messMenuData", JSON.stringify(cleanMenu));
 
       setShowSuccess(true);
@@ -116,6 +117,7 @@ export const EditMessMenu: React.FC = () => {
       alert("Failed to publish menu. Please try again.");
     }
   };
+
 
   const addItem = (meal: keyof MenuData) => {
     setMenu((prev) => ({
