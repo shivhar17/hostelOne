@@ -256,4 +256,4 @@ const Maintenance: React.FC = () => {
   );
 }
 
-
+export default Maintenance;
