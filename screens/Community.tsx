@@ -153,93 +153,101 @@ export const Community: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-        >
-          <ChevronLeft size={24} className="text-slate-700 dark:text-slate-200" />
-        </button>
-        <div className="flex flex-col items-center">
-          <p className="text-sm font-bold">Maintenance Support</p>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400">
-            Chat with hostel maintenance staff
-          </p>
-        </div>
-        <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-          {userPhoto ? (
-            <img
-              src={userPhoto}
-              alt="User"
-              className="w-full h-full object-cover"
+    <div className="h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-white">
+      <div className="h-full relative">
+        {/* 🔝 Fixed Header */}
+        <div className="fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          >
+            <ChevronLeft
+              size={24}
+              className="text-slate-700 dark:text-slate-200"
             />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-slate-600 dark:text-slate-300">
-              You
+          </button>
+          <div className="flex flex-col items-center">
+            <p className="text-sm font-bold">Maintenance Support</p>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400">
+              Chat with hostel maintenance staff
+            </p>
+          </div>
+          <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+            {userPhoto ? (
+              <img
+                src={userPhoto}
+                alt="User"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-xs text-slate-600 dark:text-slate-300">
+                You
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* 💬 Scrollable messages area between header & input */}
+        <div className="h-full overflow-y-auto px-4 space-y-3 bg-slate-50 dark:bg-[#020617] pt-[88px] pb-[76px]">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center mt-10 text-xs text-slate-500 dark:text-slate-400">
+              <MessageCircle
+                size={28}
+                className="mb-2 text-slate-400 dark:text-slate-600"
+              />
+              <p>No messages yet.</p>
+              <p>Start by asking about your maintenance complaint.</p>
             </div>
           )}
-        </div>
-      </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50 dark:bg-[#020617]">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-10 text-xs text-slate-500 dark:text-slate-400">
-            <MessageCircle
-              size={28}
-              className="mb-2 text-slate-400 dark:text-slate-600"
-            />
-            <p>No messages yet.</p>
-            <p>Start by asking about your maintenance complaint.</p>
-          </div>
-        )}
-
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.isMe ? "justify-end" : "justify-start"}`}
-          >
+          {messages.map((msg) => (
             <div
-              className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                msg.isMe
-                  ? "bg-blue-600 text-white rounded-br-none"
-                  : "bg-slate-200 text-slate-900 rounded-bl-none dark:bg-slate-800 dark:text-slate-100"
-              }`}
+              key={msg.id}
+              className={`flex ${msg.isMe ? "justify-end" : "justify-start"}`}
             >
-              <p>{msg.text}</p>
-              {msg.time && (
-                <p className="text-[9px] text-slate-500 dark:text-slate-300/70 mt-1 text-right">
-                  {msg.time}
-                </p>
-              )}
+              <div
+                className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                  msg.isMe
+                    ? "bg-blue-600 text-white rounded-br-none"
+                    : "bg-slate-200 text-slate-900 rounded-bl-none dark:bg-slate-800 dark:text-slate-100"
+                }`}
+              >
+                <p>{msg.text}</p>
+                {msg.time && (
+                  <p className="text-[9px] text-slate-500 dark:text-slate-300/70 mt-1 text-right">
+                    {msg.time}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
 
-      {/* Input */}
-      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
-        <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
-          <MessageCircle size={18} className="text-slate-500 dark:text-slate-400" />
-        </button>
-        <input
-          type="text"
-          value={inputText}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message to maintenance staff..."
-          className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-blue-500/60"
-        />
-        <button
-          onClick={handleSendMessage}
-          disabled={!inputText.trim() || !studentId}
-          className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center"
-        >
-          <Send size={18} className="text-white" />
-        </button>
+        {/* 🔻 Fixed input bar at bottom */}
+        <div className="fixed bottom-0 left-0 right-0 z-20 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
+          <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
+            <MessageCircle
+              size={18}
+              className="text-slate-500 dark:text-slate-400"
+            />
+          </button>
+          <input
+            type="text"
+            value={inputText}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message to maintenance staff..."
+            className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-blue-500/60"
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={!inputText.trim() || !studentId}
+            className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            <Send size={18} className="text-white" />
+          </button>
+        </div>
       </div>
     </div>
   );
