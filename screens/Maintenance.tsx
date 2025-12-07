@@ -44,55 +44,6 @@ const Maintenance: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 🧠 Helper: compress image using canvas (no extra library)
-  const compressImage = (file: File, maxSize = 1280, quality = 0.7) => {
-    return new Promise<Blob>((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        let { width, height } = img;
-
-        // Keep aspect ratio
-        if (width > height) {
-          if (width > maxSize) {
-            height = (height * maxSize) / width;
-            width = maxSize;
-          }
-        } else {
-          if (height > maxSize) {
-            width = (width * maxSize) / height;
-            height = maxSize;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Canvas not supported"));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error("Image compression failed"));
-              return;
-            }
-            resolve(blob);
-          },
-          "image/jpeg",
-          quality
-        );
-      };
-
-      img.onerror = (err) => reject(err);
-      img.src = URL.createObjectURL(file);
-    });
-  };
-
   const handleInputChange = (
     e: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -111,9 +62,9 @@ const Maintenance: React.FC = () => {
       return;
     }
 
-    // For extreme cases, refuse super big files (> 15MB)
-    if (file.size > 15 * 1024 * 1024) {
-      setError("Image is too large. Please choose a smaller one.");
+    // Optional hard limit (10MB) just to avoid crazy big files
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Image is too large (max 10MB). Please choose a smaller one.");
       return;
     }
 
@@ -148,21 +99,13 @@ const Maintenance: React.FC = () => {
       const formattedDate = today.toLocaleDateString("en-GB");
       let photoUrl = "";
 
-      // 🔼 Upload photo (compressed) if selected
+      // 🔼 Upload full image if selected
       if (photoFile) {
-        // compress image to around 0.5–1MB max
-        const compressedBlob = await compressImage(photoFile, 1280, 0.7);
-        const compressedFile = new File(
-          [compressedBlob],
-          photoFile.name.replace(/\.(\w+)$/, "_compressed.$1"),
-          { type: "image/jpeg" }
-        );
-
         const storageRef = ref(
           storage,
-          `maintenance/${formData.studentId}_${Date.now()}_${compressedFile.name}`
+          `maintenance/${formData.studentId}_${Date.now()}_${photoFile.name}`
         );
-        await uploadBytes(storageRef, compressedFile);
+        await uploadBytes(storageRef, photoFile);
         photoUrl = await getDownloadURL(storageRef);
       }
 
@@ -175,6 +118,8 @@ const Maintenance: React.FC = () => {
 
       await addDoc(collection(db, "complaints"), complaintData);
 
+      alert("✅ Complaint submitted successfully!");
+
       // reset form
       setFormData({
         room: "",
@@ -186,10 +131,12 @@ const Maintenance: React.FC = () => {
       setPhotoPreview(null);
 
       navigate("/?success=complaint_submitted");
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error submitting complaint:", err);
       setError("Failed to submit complaint. Please try again.");
+      alert("Error submitting complaint: " + (err?.message || ""));
     } finally {
+      // 🔁 This ALWAYS runs, even if upload fails
       setIsSubmitting(false);
     }
   };
@@ -336,3 +283,4 @@ const Maintenance: React.FC = () => {
 };
 
 export default Maintenance;
+
