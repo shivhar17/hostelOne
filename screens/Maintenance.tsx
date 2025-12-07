@@ -86,60 +86,48 @@ const Maintenance: React.FC = () => {
   };
 
   const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!validateForm()) return;
-    if (error) return;
+  if (!validateForm()) return;
+  if (error) return;
 
-    setIsSubmitting(true);
-    setError(null);
+  setIsSubmitting(true);
+  setError(null);
 
-    try {
-      const today = new Date();
-      const formattedDate = today.toLocaleDateString("en-GB");
-      let photoUrl = "";
+  try {
+    const today = new Date();
+    const formattedDate = today.toLocaleDateString("en-GB");
+    let photoUrl = "";
 
-      // 🔼 Upload full image if selected
-      if (photoFile) {
-        const storageRef = ref(
-          storage,
-          `maintenance/${formData.studentId}_${Date.now()}_${photoFile.name}`
-        );
-        await uploadBytes(storageRef, photoFile);
-        photoUrl = await getDownloadURL(storageRef);
-      }
-
-      const complaintData: ComplaintData = {
-        ...formData,
-        status: "Pending",
-        date: formattedDate,
-        photoUrl: photoUrl || null,
-      };
-
-      await addDoc(collection(db, "complaints"), complaintData);
-
-      alert("✅ Complaint submitted successfully!");
-
-      // reset form
-      setFormData({
-        room: "",
-        studentId: student?.studentId || "",
-        category: "Electricity",
-        description: "",
-      });
-      setPhotoFile(null);
-      setPhotoPreview(null);
-
-      navigate("/?success=complaint_submitted");
-    } catch (err: any) {
-      console.error("Error submitting complaint:", err);
-      setError("Failed to submit complaint. Please try again.");
-      alert("Error submitting complaint: " + (err?.message || ""));
-    } finally {
-      // 🔁 This ALWAYS runs, even if upload fails
-      setIsSubmitting(false);
+    if (photoFile) {
+      const storageRef = ref(
+        storage,
+        `maintenance/${formData.studentId}_${Date.now()}_${photoFile.name}`
+      );
+      await uploadBytes(storageRef, photoFile);
+      photoUrl = await getDownloadURL(storageRef);
     }
-  };
+
+    const complaintData: ComplaintData = {
+      ...formData,
+      status: "Pending",
+      date: formattedDate,
+      photoUrl: photoUrl || null,
+    };
+
+    await addDoc(collection(db, "complaints"), complaintData);
+
+    alert("✅ Complaint submitted successfully!");
+    // reset...
+  } catch (err: any) {
+    console.error("Error submitting complaint:", err);
+    setError("Failed to submit complaint. Please try again.");
+    alert("Error submitting complaint: " + (err?.message || ""));
+  } finally {
+    setIsSubmitting(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-black dark:text-white">
