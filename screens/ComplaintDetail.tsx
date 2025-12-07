@@ -1,3 +1,4 @@
+// src/screens/ComplaintDetail.tsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
@@ -50,7 +51,7 @@ export const ComplaintDetail: React.FC = () => {
   const [chatInput, setChatInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // 1️⃣ Load complaint details
+  // Load complaint details
   useEffect(() => {
     const loadComplaint = async () => {
       if (!id) return;
@@ -80,8 +81,7 @@ export const ComplaintDetail: React.FC = () => {
     loadComplaint();
   }, [id]);
 
-  // 2️⃣ Load chat messages for this student (NOT complaintId)
-  //    This matches Community.tsx (which queries by studentId).
+  // Load chat messages for this student (shared with Community)
   useEffect(() => {
     if (!complaint?.studentId) return;
 
@@ -115,18 +115,19 @@ export const ComplaintDetail: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // 3️⃣ Staff send message → goes to SAME collection + same studentId
+  // Staff sends message
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !id || !complaint) return;
 
     try {
       await addDoc(collection(db, "maintenanceChats"), {
-        complaintId: id,                 // we still store it for future use
-        studentId: complaint.studentId,  // 🔴 key field used on both sides
+        complaintId: id,
+        studentId: complaint.studentId,
         text: chatInput.trim(),
-        from: "staff",
+        from: "staff", // fixed staff account
         createdAt: serverTimestamp(),
       });
+
       setChatInput("");
     } catch (e) {
       console.error("Failed to send message:", e);
@@ -246,7 +247,7 @@ export const ComplaintDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Action Buttons (dummy) */}
+        {/* Action Buttons (optional) */}
         <div className="flex gap-4 mb-8">
           <button className="flex-1 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-colors">
             <RefreshCw size={16} /> Update Status
