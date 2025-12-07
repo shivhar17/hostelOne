@@ -187,8 +187,15 @@ export const Community: React.FC = () => {
           </div>
         </div>
 
-        {/* 💬 Scrollable messages area between header & input */}
-        <div className="h-full overflow-y-auto px-4 space-y-3 bg-slate-50 dark:bg-[#020617] pt-[88px] pb-[76px]">
+        {/* 💬 Scrollable messages area (between header & input+nav) */}
+        <div
+          className="
+            h-full overflow-y-auto px-4 space-y-3 
+            bg-slate-50 dark:bg-[#020617] 
+            pt-[88px] 
+            pb-[120px]  /* space for input bar + bottom nav */
+          "
+        >
           {messages.length === 0 && (
             <div className="flex flex-col items-center justify-center mt-10 text-xs text-slate-500 dark:text-slate-400">
               <MessageCircle
@@ -224,8 +231,9 @@ export const Community: React.FC = () => {
           <div ref={messagesEndRef} />
         </div>
 
-        {/* 🔻 Fixed input bar at bottom */}
-        <div className="fixed bottom-0 left-0 right-0 z-20 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
+        {/* 🔻 Fixed input bar ABOVE bottom nav */}
+        {/* bottom-16 = 64px; adjust if your nav taller/shorter */}
+        <div className="fixed left-0 right-0 bottom-16 z-20 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
           <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
             <MessageCircle
               size={18}
