@@ -1,4 +1,4 @@
-import React, { useState, FormEvent } from "react";
+import React, { useState, FormEvent, ChangeEvent } from "react";
 import { collection, addDoc } from "firebase/firestore";
 import { db, storage } from "../firebase";
 import { useNavigate } from "react-router-dom";
@@ -6,51 +6,65 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 interface Student {
   studentId: string;
-  // Add other student properties if available
 }
 
-type ComplaintCategory = 'Electricity' | 'Plumbing' | 'Furniture' | 'Water' | 'Cleaning' | 'Other';
+type ComplaintCategory =
+  | "Electricity"
+  | "Plumbing"
+  | "Furniture"
+  | "Water"
+  | "Cleaning"
+  | "Other";
 
 interface ComplaintData {
   room: string;
   studentId: string;
   category: ComplaintCategory;
   description: string;
-  status: 'Pending' | 'In Progress' | 'Resolved' | 'Rejected';
+  status: "Pending" | "In Progress" | "Resolved" | "Rejected";
   date: string;
   photoUrl: string | null;
 }
 
 const Maintenance: React.FC = () => {
   const navigate = useNavigate();
-  const student: Student | null = JSON.parse(localStorage.getItem("student") || "null");
+  const student: Student | null = JSON.parse(
+    localStorage.getItem("student") || "null"
+  );
+
   const [formData, setFormData] = useState({
     room: "",
     studentId: student?.studentId || "",
     category: "Electricity" as ComplaintCategory,
     description: "",
   });
+
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleInputChange = (
+    e: ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    if (!file.type.startsWith('image/')) {
-      setError('Please upload an image file');
+
+    if (!file.type.startsWith("image/")) {
+      setError("Please upload an image file");
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      setError('Image size should be less than 5MB');
+    if (file.size > 5 * 1024 * 1024) {
+      // 5MB limit
+      setError("Image size should be less than 5MB");
       return;
     }
 
@@ -60,8 +74,12 @@ const Maintenance: React.FC = () => {
   };
 
   const validateForm = (): boolean => {
-    if (!formData.room.trim() || !formData.studentId.trim() || !formData.description.trim()) {
-      setError('Please fill in all required fields');
+    if (
+      !formData.room.trim() ||
+      !formData.studentId.trim() ||
+      !formData.description.trim()
+    ) {
+      setError("Please fill in all required fields");
       return false;
     }
     return true;
@@ -69,7 +87,7 @@ const Maintenance: React.FC = () => {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
     if (error) return;
 
@@ -81,6 +99,7 @@ const Maintenance: React.FC = () => {
       const formattedDate = today.toLocaleDateString("en-GB");
       let photoUrl = "";
 
+      // upload photo if selected
       if (photoFile) {
         const storageRef = ref(
           storage,
@@ -92,14 +111,14 @@ const Maintenance: React.FC = () => {
 
       const complaintData: ComplaintData = {
         ...formData,
-        status: 'Pending',
+        status: "Pending",
         date: formattedDate,
         photoUrl: photoUrl || null,
       };
 
       await addDoc(collection(db, "complaints"), complaintData);
 
-      // Reset form
+      // reset form
       setFormData({
         room: "",
         studentId: student?.studentId || "",
@@ -108,7 +127,7 @@ const Maintenance: React.FC = () => {
       });
       setPhotoFile(null);
       setPhotoPreview(null);
-      
+
       navigate("/?success=complaint_submitted");
     } catch (err) {
       console.error("Error submitting complaint:", err);
@@ -134,7 +153,10 @@ const Maintenance: React.FC = () => {
 
       {/* Form Container */}
       <div className="flex items-center justify-center px-4 py-8">
-        <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1E293B] p-6 rounded-2xl w-full max-w-md shadow-lg dark:shadow-xl border border-slate-200 dark:border-slate-700">
+        <form
+          onSubmit={handleSubmit}
+          className="bg-white dark:bg-[#1E293B] p-6 rounded-2xl w-full max-w-md shadow-lg dark:shadow-xl border border-slate-200 dark:border-slate-700"
+        >
           {error && (
             <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-sm">
               {error}
@@ -254,6 +276,6 @@ const Maintenance: React.FC = () => {
       </div>
     </div>
   );
-}
+};
 
 export default Maintenance;
