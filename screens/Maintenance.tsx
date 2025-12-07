@@ -44,6 +44,28 @@ const Maintenance: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🔹 Helper: upload with a timeout so it can’t hang forever
+  const uploadPhotoWithTimeout = async (
+    file: File,
+    studentId: string,
+    timeoutMs = 20000
+  ): Promise<string> => {
+    const storageRef = ref(
+      storage,
+      `maintenance/${studentId}_${Date.now()}_${file.name}`
+    );
+
+    const uploadTask = uploadBytes(storageRef, file).then(() =>
+      getDownloadURL(storageRef)
+    );
+
+    const timeout = new Promise<string>((_, reject) =>
+      setTimeout(() => reject(new Error("Upload timeout")), timeoutMs)
+    );
+
+    return Promise.race([uploadTask, timeout]) as Promise<string>;
+  };
+
   const handleInputChange = (
     e: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -62,7 +84,7 @@ const Maintenance: React.FC = () => {
       return;
     }
 
-    // Optional hard limit (10MB) just to avoid crazy big files
+    // Optional size guard (10MB)
     if (file.size > 10 * 1024 * 1024) {
       setError("Image is too large (max 10MB). Please choose a smaller one.");
       return;
@@ -86,48 +108,67 @@ const Maintenance: React.FC = () => {
   };
 
   const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  if (!validateForm()) return;
-  if (error) return;
+    if (!validateForm()) return;
+    if (error) return;
 
-  setIsSubmitting(true);
-  setError(null);
+    setIsSubmitting(true);
+    setError(null);
 
-  try {
-    const today = new Date();
-    const formattedDate = today.toLocaleDateString("en-GB");
-    let photoUrl = "";
+    try {
+      const today = new Date();
+      const formattedDate = today.toLocaleDateString("en-GB");
+      let photoUrl = "";
 
-    if (photoFile) {
-      const storageRef = ref(
-        storage,
-        `maintenance/${formData.studentId}_${Date.now()}_${photoFile.name}`
-      );
-      await uploadBytes(storageRef, photoFile);
-      photoUrl = await getDownloadURL(storageRef);
+      console.log("Submitting complaint…");
+
+      if (photoFile) {
+        console.log("Uploading photo to Firebase Storage…");
+        photoUrl = await uploadPhotoWithTimeout(
+          photoFile,
+          formData.studentId,
+          20000
+        );
+        console.log("Photo uploaded, URL:", photoUrl);
+      }
+
+      const complaintData: ComplaintData = {
+        ...formData,
+        status: "Pending",
+        date: formattedDate,
+        photoUrl: photoUrl || null,
+      };
+
+      console.log("Saving complaint to Firestore…");
+      await addDoc(collection(db, "complaints"), complaintData);
+
+      alert("✅ Complaint submitted successfully!");
+
+      // reset form
+      setFormData({
+        room: "",
+        studentId: student?.studentId || "",
+        category: "Electricity",
+        description: "",
+      });
+      setPhotoFile(null);
+      setPhotoPreview(null);
+
+      navigate("/?success=complaint_submitted");
+    } catch (err: any) {
+      console.error("Error submitting complaint:", err);
+      const msg =
+        err?.message ||
+        (err?.code ? String(err.code) : "Unknown error during submit");
+      setError("Failed to submit complaint. Please try again.");
+      alert("Error submitting complaint: " + msg);
+    } finally {
+      // 🔁 This ALWAYS runs, even on timeout / error
+      setIsSubmitting(false);
+      console.log("Submit finished (success or error), button reset.");
     }
-
-    const complaintData: ComplaintData = {
-      ...formData,
-      status: "Pending",
-      date: formattedDate,
-      photoUrl: photoUrl || null,
-    };
-
-    await addDoc(collection(db, "complaints"), complaintData);
-
-    alert("✅ Complaint submitted successfully!");
-    // reset...
-  } catch (err: any) {
-    console.error("Error submitting complaint:", err);
-    setError("Failed to submit complaint. Please try again.");
-    alert("Error submitting complaint: " + (err?.message || ""));
-  } finally {
-    setIsSubmitting(false);
-  }
-};
-
+  };
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-black dark:text-white">
