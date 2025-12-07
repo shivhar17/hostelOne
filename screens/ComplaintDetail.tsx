@@ -50,7 +50,7 @@ export const ComplaintDetail: React.FC = () => {
   const [chatInput, setChatInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Load complaint details
+  // 1️⃣ Load complaint details
   useEffect(() => {
     const loadComplaint = async () => {
       if (!id) return;
@@ -80,13 +80,14 @@ export const ComplaintDetail: React.FC = () => {
     loadComplaint();
   }, [id]);
 
-  // Load chat messages for this complaint (Firestore)
+  // 2️⃣ Load chat messages for this student (NOT complaintId)
+  //    This matches Community.tsx (which queries by studentId).
   useEffect(() => {
-    if (!id) return;
+    if (!complaint?.studentId) return;
 
     const q = query(
       collection(db, "maintenanceChats"),
-      where("complaintId", "==", id),
+      where("studentId", "==", complaint.studentId),
       orderBy("createdAt", "asc")
     );
 
@@ -98,7 +99,7 @@ export const ComplaintDetail: React.FC = () => {
           return {
             id: d.id,
             text: data.text || "",
-            from: data.from || "staff",
+            from: (data.from as "staff" | "student") || "staff",
             createdAt: data.createdAt,
           };
         });
@@ -108,19 +109,20 @@ export const ComplaintDetail: React.FC = () => {
     );
 
     return () => unsub();
-  }, [id]);
+  }, [complaint?.studentId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
+  // 3️⃣ Staff send message → goes to SAME collection + same studentId
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !id || !complaint) return;
 
     try {
       await addDoc(collection(db, "maintenanceChats"), {
-        complaintId: id,
-        studentId: complaint.studentId,
+        complaintId: id,                 // we still store it for future use
+        studentId: complaint.studentId,  // 🔴 key field used on both sides
         text: chatInput.trim(),
         from: "staff",
         createdAt: serverTimestamp(),
@@ -174,7 +176,7 @@ export const ComplaintDetail: React.FC = () => {
         </button>
       </div>
 
-      {/* Filters (dummy for now) */}
+      {/* Filters (dummy) */}
       <div className="px-6 py-4 flex gap-4">
         <div className="flex-1 bg-[#1E293B] px-4 py-2.5 rounded-xl flex justify-between items-center text-xs font-medium text-slate-300">
           Sort by: Latest <ChevronDown size={14} />
@@ -210,7 +212,7 @@ export const ComplaintDetail: React.FC = () => {
             {complaint.description}
           </p>
 
-          {/* Photos */}
+          {/* Photo */}
           <h3 className="text-xs font-bold text-slate-500 mb-3 uppercase tracking-wider">
             Submitted Photo
           </h3>
