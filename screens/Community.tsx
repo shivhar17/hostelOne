@@ -12,7 +12,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
   addDoc,
   serverTimestamp,
@@ -25,6 +24,7 @@ interface Message {
   from: "staff" | "student";
   time: string;
   isMe: boolean;
+  createdAtMillis: number;
 }
 
 export const Community: React.FC = () => {
@@ -60,14 +60,20 @@ export const Community: React.FC = () => {
     }
   }, []);
 
+  const getMillis = (ts: any): number => {
+    if (!ts) return 0;
+    if (typeof ts.toMillis === "function") return ts.toMillis();
+    if (typeof ts.seconds === "number") return ts.seconds * 1000;
+    return 0;
+  };
+
   // Real-time chat for this student (Maintenance Support)
   useEffect(() => {
     if (!studentId) return;
 
     const q = query(
       collection(db, "maintenanceChats"),
-      where("studentId", "==", studentId),
-      orderBy("createdAt", "asc")
+      where("studentId", "==", studentId)
     );
 
     const unsub = onSnapshot(
@@ -77,11 +83,16 @@ export const Community: React.FC = () => {
           const data = d.data() as any;
           const fromStaff = data.from === "staff";
 
-          const createdAt = data.createdAt?.toDate
-            ? data.createdAt.toDate()
-            : null;
-          const time = createdAt
-            ? createdAt.toLocaleTimeString([], {
+          const createdAt = data.createdAt;
+          const millis = getMillis(createdAt);
+
+          const dateObj =
+            createdAt && typeof createdAt.toDate === "function"
+              ? createdAt.toDate()
+              : null;
+
+          const time = dateObj
+            ? dateObj.toLocaleTimeString([], {
                 hour: "2-digit",
                 minute: "2-digit",
               })
@@ -93,9 +104,11 @@ export const Community: React.FC = () => {
             from: fromStaff ? "staff" : "student",
             time,
             isMe: !fromStaff,
+            createdAtMillis: millis,
           };
         });
 
+        msgs.sort((a, b) => a.createdAtMillis - b.createdAtMillis);
         setMessages(msgs);
       },
       (err) => console.error("maintenance chat error", err)
@@ -114,7 +127,7 @@ export const Community: React.FC = () => {
 
     try {
       await addDoc(collection(db, "maintenanceChats"), {
-        complaintId: null, // generic support; staff still sees by studentId
+        complaintId: null,
         studentId,
         text: inputText.trim(),
         from: "student",
@@ -228,3 +241,4 @@ export const Community: React.FC = () => {
     </div>
   );
 };
+

@@ -15,7 +15,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   onSnapshot,
   addDoc,
   serverTimestamp,
@@ -37,7 +36,7 @@ interface ChatMessage {
   id: string;
   text: string;
   from: "staff" | "student";
-  createdAt?: any;
+  createdAtMillis: number;
 }
 
 export const ComplaintDetail: React.FC = () => {
@@ -81,14 +80,21 @@ export const ComplaintDetail: React.FC = () => {
     loadComplaint();
   }, [id]);
 
-  // Load chat messages for this student (shared with Community)
+  // Helper: convert Firestore timestamp-ish value to millis
+  const getMillis = (ts: any): number => {
+    if (!ts) return 0;
+    if (typeof ts.toMillis === "function") return ts.toMillis();
+    if (typeof ts.seconds === "number") return ts.seconds * 1000;
+    return 0;
+  };
+
+  // Load chat messages for this student
   useEffect(() => {
     if (!complaint?.studentId) return;
 
     const q = query(
       collection(db, "maintenanceChats"),
-      where("studentId", "==", complaint.studentId),
-      orderBy("createdAt", "asc")
+      where("studentId", "==", complaint.studentId)
     );
 
     const unsub = onSnapshot(
@@ -100,9 +106,11 @@ export const ComplaintDetail: React.FC = () => {
             id: d.id,
             text: data.text || "",
             from: (data.from as "staff" | "student") || "staff",
-            createdAt: data.createdAt,
+            createdAtMillis: getMillis(data.createdAt),
           };
         });
+
+        msgs.sort((a, b) => a.createdAtMillis - b.createdAtMillis);
         setChatMessages(msgs);
       },
       (err) => console.error("Chat listener error:", err)
@@ -124,7 +132,7 @@ export const ComplaintDetail: React.FC = () => {
         complaintId: id,
         studentId: complaint.studentId,
         text: chatInput.trim(),
-        from: "staff", // fixed staff account
+        from: "staff", // single staff account
         createdAt: serverTimestamp(),
       });
 
