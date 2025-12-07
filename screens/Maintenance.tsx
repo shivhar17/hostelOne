@@ -44,6 +44,55 @@ const Maintenance: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 🧠 Helper: compress image using canvas (no extra library)
+  const compressImage = (file: File, maxSize = 1280, quality = 0.7) => {
+    return new Promise<Blob>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let { width, height } = img;
+
+        // Keep aspect ratio
+        if (width > height) {
+          if (width > maxSize) {
+            height = (height * maxSize) / width;
+            width = maxSize;
+          }
+        } else {
+          if (height > maxSize) {
+            width = (width * maxSize) / height;
+            height = maxSize;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas not supported"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error("Image compression failed"));
+              return;
+            }
+            resolve(blob);
+          },
+          "image/jpeg",
+          quality
+        );
+      };
+
+      img.onerror = (err) => reject(err);
+      img.src = URL.createObjectURL(file);
+    });
+  };
+
   const handleInputChange = (
     e: ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
@@ -62,9 +111,9 @@ const Maintenance: React.FC = () => {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      // 5MB limit
-      setError("Image size should be less than 5MB");
+    // For extreme cases, refuse super big files (> 15MB)
+    if (file.size > 15 * 1024 * 1024) {
+      setError("Image is too large. Please choose a smaller one.");
       return;
     }
 
@@ -99,13 +148,21 @@ const Maintenance: React.FC = () => {
       const formattedDate = today.toLocaleDateString("en-GB");
       let photoUrl = "";
 
-      // upload photo if selected
+      // 🔼 Upload photo (compressed) if selected
       if (photoFile) {
+        // compress image to around 0.5–1MB max
+        const compressedBlob = await compressImage(photoFile, 1280, 0.7);
+        const compressedFile = new File(
+          [compressedBlob],
+          photoFile.name.replace(/\.(\w+)$/, "_compressed.$1"),
+          { type: "image/jpeg" }
+        );
+
         const storageRef = ref(
           storage,
-          `maintenance/${formData.studentId}_${Date.now()}_${photoFile.name}`
+          `maintenance/${formData.studentId}_${Date.now()}_${compressedFile.name}`
         );
-        await uploadBytes(storageRef, photoFile);
+        await uploadBytes(storageRef, compressedFile);
         photoUrl = await getDownloadURL(storageRef);
       }
 
@@ -219,7 +276,7 @@ const Maintenance: React.FC = () => {
           {/* Photo Upload */}
           <div className="mb-4">
             <label className="text-sm text-slate-600 dark:text-slate-400">
-              Attach Photo (optional, max 5MB)
+              Attach Photo (optional)
             </label>
             <input
               type="file"
