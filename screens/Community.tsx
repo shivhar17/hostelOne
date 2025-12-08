@@ -154,8 +154,8 @@ export const Community: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
+      {/* 🔝 Sticky header: Maintenance Support bar fixed at top */}
+      <div className="sticky top-0 z-20 flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
         <button
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -220,7 +220,7 @@ export const Community: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input – this stays just above the bottom nav because of pb-24 on the page */}
+      {/* Input – stays above bottom nav because of pb-24 on root */}
       <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
         <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
           <MessageCircle size={18} className="text-slate-500 dark:text-slate-400" />
