@@ -118,12 +118,11 @@ export const Community: React.FC = () => {
     return () => unsub();
   }, [studentId]);
 
-  // 📍 Mark as "seen" when student is on this screen
+  // 📍 Mark ALL messages as "seen" when the screen is opened
   useEffect(() => {
-    if (!studentId || messages.length === 0) return;
-    // store last seen time (now) – used by unread badge hook
-    localStorage.setItem("maintenanceLastSeen", String(Date.now()));
-  }, [studentId, messages.length]);
+    const now = Date.now();
+    localStorage.setItem("maintenanceLastSeen", String(now));
+  }, []);
 
   // Scroll to bottom when messages change
   useEffect(() => {

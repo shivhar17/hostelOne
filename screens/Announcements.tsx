@@ -18,6 +18,7 @@ export const Announcements: React.FC = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 Load announcements
   useEffect(() => {
     const q = query(
       collection(db, "announcements"),
@@ -35,6 +36,12 @@ export const Announcements: React.FC = () => {
     });
 
     return () => unsub();
+  }, []);
+
+  // 📍 Mark announcements as "seen" when screen opens
+  useEffect(() => {
+    const now = Date.now();
+    localStorage.setItem("announcementLastSeen", String(now));
   }, []);
 
   const getIcon = (type: string) => {
@@ -93,3 +100,4 @@ export const Announcements: React.FC = () => {
     </div>
   );
 };
+

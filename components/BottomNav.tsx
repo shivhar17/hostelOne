@@ -2,12 +2,15 @@
 import React from "react";
 import { Home, Users, Bell, User } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { useMaintenanceUnread } from "../dist/useMaintenanceUnread";
+import { useMaintenanceUnread } from "../hooks/useMaintenanceUnread";
+import { useAnnouncementsUnread } from "../hooks/useAnnouncementsUnread";
 
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const hasUnread = useMaintenanceUnread();
+
+  const hasChatUnread = useMaintenanceUnread();
+  const hasAnnouncementsUnread = useAnnouncementsUnread();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -15,18 +18,16 @@ export const BottomNav: React.FC = () => {
     <div className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-around z-30">
       {/* Home */}
       <button
-        onClick={() => navigate("/dashboard")}
+        onClick={() => navigate("/")}
         className="flex flex-col items-center text-[11px]"
       >
         <Home
           size={22}
           className={
-            isActive("/dashboard") ? "text-emerald-500" : "text-slate-400"
+            isActive("/") ? "text-emerald-500" : "text-slate-400"
           }
         />
-        <span className={isActive("/dashboard") ? "text-emerald-500" : ""}>
-          Home
-        </span>
+        <span className={isActive("/") ? "text-emerald-500" : ""}>Home</span>
       </button>
 
       {/* Community + unread badge */}
@@ -40,7 +41,7 @@ export const BottomNav: React.FC = () => {
             isActive("/community") ? "text-emerald-500" : "text-slate-400"
           }
         />
-        {hasUnread && !isActive("/community") && (
+        {hasChatUnread && !isActive("/community") && (
           <span className="absolute -top-0.5 right-2 w-2 h-2 rounded-full bg-red-500" />
         )}
         <span className={isActive("/community") ? "text-emerald-500" : ""}>
@@ -48,10 +49,10 @@ export const BottomNav: React.FC = () => {
         </span>
       </button>
 
-      {/* Updates / Announcements */}
+      {/* Updates / Announcements + unread badge */}
       <button
         onClick={() => navigate("/announcements")}
-        className="flex flex-col items-center text-[11px]"
+        className="relative flex flex-col items-center text-[11px]"
       >
         <Bell
           size={22}
@@ -59,6 +60,9 @@ export const BottomNav: React.FC = () => {
             isActive("/announcements") ? "text-emerald-500" : "text-slate-400"
           }
         />
+        {hasAnnouncementsUnread && !isActive("/announcements") && (
+          <span className="absolute -top-0.5 right-2 w-2 h-2 rounded-full bg-red-500" />
+        )}
         <span
           className={isActive("/announcements") ? "text-emerald-500" : ""}
         >
