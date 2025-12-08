@@ -1,247 +1,137 @@
-// src/screens/Community.tsx
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  ChangeEvent,
-  KeyboardEvent,
-} from "react";
-import { ChevronLeft, Send, MessageCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { db } from "../firebase";
 import {
   collection,
-  query,
-  where,
-  onSnapshot,
   addDoc,
+  query,
+  onSnapshot,
+  orderBy,
   serverTimestamp,
 } from "firebase/firestore";
-import { db } from "../firebase";
+import { ChevronLeft, Send } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
-interface Message {
+interface ChatMessage {
   id: string;
   text: string;
-  from: "staff" | "student";
-  time: string;
-  isMe: boolean;
-  createdAtMillis: number;
+  from: "student" | "staff";
+  studentId?: string;
+  createdAt?: { seconds: number; nanoseconds: number };
 }
 
-export const Community: React.FC = () => {
+export default function Community() {
   const navigate = useNavigate();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
-  const [studentId, setStudentId] = useState<string | null>(null);
-  const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const student = JSON.parse(localStorage.getItem("student") || "{}");
+  const studentId = student?.studentId;
 
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState("");
-  const messagesEndRef = useRef<HTMLDivElement | null>(null);
-
-  // Load student + avatar from localStorage
-  useEffect(() => {
-    const savedProfile = localStorage.getItem("userProfile");
-    if (savedProfile) {
-      try {
-        const parsed = JSON.parse(savedProfile);
-        if (parsed.photo) setUserPhoto(parsed.photo);
-      } catch {
-        // ignore malformed profile
+  // Auto scroll on update
+  const scrollToBottom = () => {
+    setTimeout(() => {
+      if (containerRef.current) {
+        containerRef.current.scrollTop = containerRef.current.scrollHeight;
       }
-    }
-
-    const savedStudent = localStorage.getItem("student");
-    if (savedStudent) {
-      try {
-        const parsed = JSON.parse(savedStudent);
-        if (parsed.studentId) setStudentId(parsed.studentId);
-      } catch {
-        // ignore malformed student
-      }
-    }
-  }, []);
-
-  const getMillis = (ts: any): number => {
-    if (!ts) return 0;
-    if (typeof ts.toMillis === "function") return ts.toMillis();
-    if (typeof ts.seconds === "number") return ts.seconds * 1000;
-    return 0;
+    }, 100);
   };
 
-  // Real-time chat for this student (Maintenance Support)
+  // 🔥 Real-time message listener
   useEffect(() => {
-    if (!studentId) return;
+    const q = query(collection(db, "maintenanceChats"), orderBy("createdAt", "asc"));
 
-    const q = query(
-      collection(db, "maintenanceChats"),
-      where("studentId", "==", studentId)
-    );
+    const unsub = onSnapshot(q, (snapshot) => {
+      const list = snapshot.docs.map(
+        (d) => ({ id: d.id, ...d.data() } as ChatMessage)
+      );
 
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const msgs: Message[] = snapshot.docs.map((d) => {
-          const data = d.data() as any;
-          const fromStaff = data.from === "staff";
-
-          const createdAt = data.createdAt;
-          const millis = getMillis(createdAt);
-
-          const dateObj =
-            createdAt && typeof createdAt.toDate === "function"
-              ? createdAt.toDate()
-              : null;
-
-          const time = dateObj
-            ? dateObj.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "";
-
-          return {
-            id: d.id,
-            text: data.text || "",
-            from: fromStaff ? "staff" : "student",
-            time,
-            isMe: !fromStaff,
-            createdAtMillis: millis,
-          };
-        });
-
-        // sort by timestamp
-        msgs.sort((a, b) => a.createdAtMillis - b.createdAtMillis);
-        setMessages(msgs);
-      },
-      (err) => console.error("maintenance chat error", err)
-    );
+      setMessages(list);
+      scrollToBottom();
+    });
 
     return () => unsub();
-  }, [studentId]);
+  }, []);
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  // ✉ Send message
+  const sendMessage = async () => {
+    if (!input.trim()) return;
 
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || !studentId) return;
+    await addDoc(collection(db, "maintenanceChats"), {
+      text: input,
+      from: "student",
+      studentId,
+      createdAt: serverTimestamp(),
+    });
 
-    try {
-      await addDoc(collection(db, "maintenanceChats"), {
-        studentId,
-        text: inputText.trim(),
-        from: "student",
-        createdAt: serverTimestamp(),
-      });
-
-      setInputText("");
-    } catch (e) {
-      console.error("Failed to send support message:", e);
-      alert("Failed to send message. Try again.");
-    }
-  };
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setInputText(e.target.value);
+    setInput("");
+    scrollToBottom();
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col pb-24">
-      {/* 🔝 Sticky header: Maintenance Support bar fixed at top */}
-      <div className="sticky top-0 z-20 flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-[#020617] pb-24">
+
+      {/* 🧰 Sticky top header */}
+      <div className="sticky top-0 z-20 flex items-center justify-between px-4 pt-10 pb-4
+          border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+          className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
         >
           <ChevronLeft size={24} className="text-slate-700 dark:text-slate-200" />
         </button>
+
         <div className="flex flex-col items-center">
-          <p className="text-sm font-bold">Maintenance Support</p>
-          <p className="text-[10px] text-slate-500 dark:text-slate-400">
-            Chat with hostel maintenance staff
-          </p>
+          <p className="text-base font-bold">Maintenance Support</p>
+          <p className="text-[11px] text-slate-500 dark:text-slate-400">Chat with hostel staff</p>
         </div>
+
         <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-          {userPhoto ? (
-            <img
-              src={userPhoto}
-              alt="User"
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-slate-600 dark:text-slate-300">
-              You
-            </div>
-          )}
+          <img src="/support.png" alt="support" className="w-full h-full object-cover" />
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50 dark:bg-[#020617]">
-        {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center mt-10 text-xs text-slate-500 dark:text-slate-400">
-            <MessageCircle
-              size={28}
-              className="mb-2 text-slate-400 dark:text-slate-600"
-            />
-            <p>No messages yet.</p>
-            <p>Start by asking about your maintenance complaint.</p>
-          </div>
-        )}
-
-        {messages.map((msg) => (
+      {/* 💬 Messages container scrollable */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50 dark:bg-[#020617]"
+      >
+        {messages.map((m) => (
           <div
-            key={msg.id}
-            className={`flex ${msg.isMe ? "justify-end" : "justify-start"}`}
+            key={m.id}
+            className={`flex ${m.from === "student" ? "justify-end" : "justify-start"}`}
           >
             <div
-              className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                msg.isMe
+              className={`max-w-[70%] px-3 py-2 text-sm rounded-2xl shadow
+                ${m.from === "student"
                   ? "bg-blue-600 text-white rounded-br-none"
-                  : "bg-slate-200 text-slate-900 rounded-bl-none dark:bg-slate-800 dark:text-slate-100"
-              }`}
+                  : "bg-slate-300 dark:bg-slate-700 text-black dark:text-white rounded-bl-none"
+                }`}
             >
-              <p>{msg.text}</p>
-              {msg.time && (
-                <p className="text-[9px] text-slate-500 dark:text-slate-300/70 mt-1 text-right">
-                  {msg.time}
-                </p>
-              )}
+              <p>{m.text}</p>
             </div>
           </div>
         ))}
-        <div ref={messagesEndRef} />
       </div>
 
-      {/* Input – stays above bottom nav because of pb-24 on root */}
-      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
-        <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
-          <MessageCircle size={18} className="text-slate-500 dark:text-slate-400" />
-        </button>
+      {/* ✍ Input and send button fixed above bottom navigation */}
+      <div className="fixed bottom-16 left-0 w-full px-4 py-3 flex items-center gap-3
+            bg-white dark:bg-[#020617] border-t border-slate-200 dark:border-slate-700">
         <input
-          type="text"
-          value={inputText}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message to maintenance staff."
-          className="flex-1 bg-slate-100 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-full px-4 py-2 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none focus:ring-2 focus:ring-blue-500/60"
+          className="flex-1 px-4 py-2 rounded-full border border-slate-300 dark:border-slate-700
+          bg-slate-100 dark:bg-slate-800 outline-none"
+          placeholder="Type a message..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
         />
         <button
-          onClick={handleSendMessage}
-          disabled={!inputText.trim() || !studentId}
-          className="p-2 rounded-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-400 dark:disabled:bg-slate-700 disabled:cursor-not-allowed flex items-center justify-center"
+          onClick={sendMessage}
+          className="p-3 rounded-full bg-blue-600 text-white"
         >
-          <Send size={18} className="text-white" />
+          <Send size={18} />
         </button>
       </div>
     </div>
   );
-};
+}
 
