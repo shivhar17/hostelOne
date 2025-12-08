@@ -1,42 +1,86 @@
-import React from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { Home, Users, Bell, User } from 'lucide-react';
+// src/components/BottomNav.tsx
+import React from "react";
+import { Home, Users, Bell, User } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMaintenanceUnread } from "../dist/useMaintenanceUnread";
 
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const hasUnread = useMaintenanceUnread();
 
-  // Hide on onboarding, maintenance flow, login, and all staff pages
-  const hideNavPaths = ['/onboarding', '/maintenance', '/login'];
-  const isStaffPage = location.pathname.startsWith('/staff');
-  
-  if (hideNavPaths.includes(location.pathname) || isStaffPage) return null;
-
-  const isActive = (path: string) => location.pathname === path || (path !== '/' && location.pathname.startsWith(path));
-
-  const navItems = [
-    { icon: Home, label: 'Home', path: '/' },
-    { icon: Users, label: 'Community', path: '/community' },
-    { icon: Bell, label: 'Updates', path: '/announcements' },
-    { icon: User, label: 'Profile', path: '/profile' },
-  ];
+  const isActive = (path: string) => location.pathname === path;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 pb-safe pt-2 px-6 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] z-50 transition-colors duration-300">
-      <div className="flex justify-between items-center max-w-md mx-auto pb-4">
-        {navItems.map((item) => (
-          <button
-            key={item.label}
-            onClick={() => navigate(item.path)}
-            className={`flex flex-col items-center gap-1 p-2 transition-colors duration-200 ${
-              isActive(item.path) ? 'text-teal-500 dark:text-teal-400' : 'text-gray-400 dark:text-slate-500'
-            }`}
-          >
-            <item.icon size={24} strokeWidth={isActive(item.path) ? 2.5 : 2} />
-            <span className="text-[10px] font-medium">{item.label}</span>
-          </button>
-        ))}
-      </div>
+    <div className="fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex items-center justify-around z-30">
+      {/* Home */}
+      <button
+        onClick={() => navigate("/dashboard")}
+        className="flex flex-col items-center text-[11px]"
+      >
+        <Home
+          size={22}
+          className={
+            isActive("/dashboard") ? "text-emerald-500" : "text-slate-400"
+          }
+        />
+        <span className={isActive("/dashboard") ? "text-emerald-500" : ""}>
+          Home
+        </span>
+      </button>
+
+      {/* Community + unread badge */}
+      <button
+        onClick={() => navigate("/community")}
+        className="relative flex flex-col items-center text-[11px]"
+      >
+        <Users
+          size={22}
+          className={
+            isActive("/community") ? "text-emerald-500" : "text-slate-400"
+          }
+        />
+        {hasUnread && !isActive("/community") && (
+          <span className="absolute -top-0.5 right-2 w-2 h-2 rounded-full bg-red-500" />
+        )}
+        <span className={isActive("/community") ? "text-emerald-500" : ""}>
+          Community
+        </span>
+      </button>
+
+      {/* Updates / Announcements */}
+      <button
+        onClick={() => navigate("/announcements")}
+        className="flex flex-col items-center text-[11px]"
+      >
+        <Bell
+          size={22}
+          className={
+            isActive("/announcements") ? "text-emerald-500" : "text-slate-400"
+          }
+        />
+        <span
+          className={isActive("/announcements") ? "text-emerald-500" : ""}
+        >
+          Updates
+        </span>
+      </button>
+
+      {/* Profile */}
+      <button
+        onClick={() => navigate("/profile")}
+        className="flex flex-col items-center text-[11px]"
+      >
+        <User
+          size={22}
+          className={
+            isActive("/profile") ? "text-emerald-500" : "text-slate-400"
+          }
+        />
+        <span className={isActive("/profile") ? "text-emerald-500" : ""}>
+          Profile
+        </span>
+      </button>
     </div>
   );
 };

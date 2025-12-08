@@ -67,7 +67,7 @@ export const Community: React.FC = () => {
     return 0;
   };
 
-  // Real-time chat for this student (Maintenance Support)
+  // 🔥 Real-time chat for this student (Maintenance Support)
   useEffect(() => {
     if (!studentId) return;
 
@@ -117,6 +117,13 @@ export const Community: React.FC = () => {
 
     return () => unsub();
   }, [studentId]);
+
+  // 📍 Mark as "seen" when student is on this screen
+  useEffect(() => {
+    if (!studentId || messages.length === 0) return;
+    // store last seen time (now) – used by unread badge hook
+    localStorage.setItem("maintenanceLastSeen", String(Date.now()));
+  }, [studentId, messages.length]);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -183,7 +190,7 @@ export const Community: React.FC = () => {
         </div>
       </div>
 
-      {/* Messages */}
+      {/* 💬 Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50 dark:bg-[#020617]">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center mt-10 text-xs text-slate-500 dark:text-slate-400">
@@ -220,7 +227,7 @@ export const Community: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input – stays above bottom nav because of pb-24 on root */}
+      {/* ✍ Input – sits above bottom nav thanks to pb-24 on root */}
       <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
         <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
           <MessageCircle size={18} className="text-slate-500 dark:text-slate-400" />
@@ -244,3 +251,4 @@ export const Community: React.FC = () => {
     </div>
   );
 };
+
