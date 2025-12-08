@@ -1,15 +1,8 @@
+// src/screens/Announcements.tsx
 import React, { useEffect, useState } from "react";
 import { ArrowLeft, Utensils, PartyPopper, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  updateDoc,
-  doc,
-  arrayUnion,
-} from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 
 interface Announcement {
@@ -18,70 +11,34 @@ interface Announcement {
   message: string;
   type: string;
   createdAt: any;
-  readBy?: string[];
 }
 
 export const Announcements: React.FC = () => {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [studentId, setStudentId] = useState<string | null>(null);
 
-  // Get studentId from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("student");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        setStudentId(parsed.studentId || null);
-      } catch {
-        setStudentId(null);
-      }
-    }
-  }, []);
-
-  // Realtime announcements + mark as read
   useEffect(() => {
     const q = query(
       collection(db, "announcements"),
       orderBy("createdAt", "desc")
     );
 
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const data = snapshot.docs.map((d) => ({
-          id: d.id,
-          ...(d.data() as any),
-        })) as Announcement[];
+    const unsub = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Announcement[];
 
-        setAnnouncements(data);
-        setLoading(false);
-
-        // Mark as read for this student
-        if (!studentId) return;
-
-        data.forEach((a) => {
-          const readBy = a.readBy || [];
-          if (!readBy.includes(studentId)) {
-            const ref = doc(db, "announcements", a.id);
-            updateDoc(ref, {
-              readBy: arrayUnion(studentId),
-            }).catch((err) => console.error("mark read error", err));
-          }
-        });
-      },
-      (err) => {
-        console.error("announcements listener error", err);
-        setLoading(false);
-      }
-    );
+      setAnnouncements(data);
+      setLoading(false);
+    });
 
     return () => unsub();
-  }, [studentId]);
+  }, []);
 
   const getIcon = (type: string) => {
-    switch ((type || "").toLowerCase()) {
+    switch (type.toLowerCase()) {
       case "mess":
         return Utensils;
       case "event":
@@ -92,8 +49,7 @@ export const Announcements: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex flex-col transition-colors duration-300">
-      {/* Header */}
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex flex-col transition-colors duration-300 pb-24">
       <div className="bg-white dark:bg-slate-900 px-6 pt-12 pb-6 shadow-sm flex items-center gap-4 sticky top-0 z-20">
         <button
           onClick={() => navigate(-1)}
@@ -106,11 +62,8 @@ export const Announcements: React.FC = () => {
         </h1>
       </div>
 
-      {/* List */}
       <div className="p-6 space-y-4">
-        {loading && (
-          <p className="text-center text-slate-500">Loading...</p>
-        )}
+        {loading && <p className="text-center text-slate-500">Loading...</p>}
 
         {!loading && announcements.length === 0 && (
           <p className="text-center text-slate-400">No announcements yet</p>
