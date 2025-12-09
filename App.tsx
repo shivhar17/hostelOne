@@ -27,18 +27,28 @@ import { StaffNewAnnouncement } from "./screens/StaffNewAnnouncement";
 
 import { BottomNav } from "./components/BottomNav";
 
-// Inner component so we can use useLocation (must be inside <Router>)
 const AppRoutes: React.FC = () => {
   const location = useLocation();
 
-  // hide bottom nav on all staff routes
+  // hide on these pages
   const isStaffRoute = location.pathname.startsWith("/staff");
-  const showBottomNav = !isStaffRoute;
+  const isLoginRoute = location.pathname === "/login";
+  const isOnboardingRoute = location.pathname === "/onboarding";
+  const isAnnouncementPreview = location.pathname.startsWith(
+    "/announcement/"
+  );
+
+  const showBottomNav =
+    !isStaffRoute &&
+    !isLoginRoute &&
+    !isOnboardingRoute &&
+    !isAnnouncementPreview;
 
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-slate-950 shadow-2xl overflow-y-auto relative no-scrollbar transition-colors duration-300">
+
       <Routes>
-        {/* Student routes */}
+        {/* student routes */}
         <Route path="/" element={<Dashboard />} />
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/login" element={<Login />} />
@@ -50,16 +60,13 @@ const AppRoutes: React.FC = () => {
         <Route path="/profile" element={<Profile />} />
         <Route path="/my-complaints" element={<StudentComplaints />} />
 
-        {/* Staff routes */}
+        {/* staff */}
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
         <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
         <Route path="/staff/edit-menu" element={<EditMessMenu />} />
         <Route path="/staff/students" element={<StudentsDirectory />} />
         <Route path="/staff/student/:id" element={<StudentProfile />} />
-        <Route
-          path="/staff/new-announcement"
-          element={<StaffNewAnnouncement />}
-        />
+        <Route path="/staff/new-announcement" element={<StaffNewAnnouncement />} />
       </Routes>
 
       {showBottomNav && <BottomNav />}
@@ -68,14 +75,11 @@ const AppRoutes: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // global dark mode init
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
-    const systemPrefersDark = window.matchMedia(
-      "(prefers-color-scheme: dark)"
-    ).matches;
+    const prefersDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-    if (savedTheme === "dark" || (!savedTheme && systemPrefersDark)) {
+    if (savedTheme === "dark" || (!savedTheme && prefersDarkMode)) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
