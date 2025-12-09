@@ -1,5 +1,11 @@
+// src/App.tsx
 import React, { useEffect } from "react";
-import { HashRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  HashRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+} from "react-router-dom";
 
 import { Onboarding } from "./screens/Onboarding";
 import { Login } from "./screens/Login";
@@ -9,6 +15,7 @@ import Maintenance from "./screens/Maintenance";
 import StudentComplaints from "./pages/StudentComplaints";
 import { Community } from "./screens/Community";
 import { Announcements } from "./screens/Announcements";
+import { AnnouncementPreview } from "./screens/AnnouncementPreview";
 import { Profile } from "./screens/Profile";
 
 import { StaffDashboard } from "./screens/StaffDashboard";
@@ -16,20 +23,52 @@ import { ComplaintDetail } from "./screens/ComplaintDetail";
 import { EditMessMenu } from "./screens/EditMessMenu";
 import { StudentsDirectory } from "./screens/StudentDirectory";
 import { StudentProfile } from "./screens/StudentProfile";
+import { StaffNewAnnouncement } from "./screens/StaffNewAnnouncement";
 
 import { BottomNav } from "./components/BottomNav";
 
-const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+// Inner component so we can use useLocation (must be inside <Router>)
+const AppRoutes: React.FC = () => {
+  const location = useLocation();
+
+  // hide bottom nav on all staff routes
+  const isStaffRoute = location.pathname.startsWith("/staff");
+  const showBottomNav = !isStaffRoute;
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-slate-950 shadow-2xl overflow-y-auto relative no-scrollbar transition-colors duration-300">
-      {children}
-      <BottomNav />
+      <Routes>
+        {/* Student routes */}
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/onboarding" element={<Onboarding />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/mess" element={<MessMenu />} />
+        <Route path="/maintenance" element={<Maintenance />} />
+        <Route path="/community" element={<Community />} />
+        <Route path="/announcements" element={<Announcements />} />
+        <Route path="/announcement/:id" element={<AnnouncementPreview />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/my-complaints" element={<StudentComplaints />} />
+
+        {/* Staff routes */}
+        <Route path="/staff-dashboard" element={<StaffDashboard />} />
+        <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
+        <Route path="/staff/edit-menu" element={<EditMessMenu />} />
+        <Route path="/staff/students" element={<StudentsDirectory />} />
+        <Route path="/staff/student/:id" element={<StudentProfile />} />
+        <Route
+          path="/staff/new-announcement"
+          element={<StaffNewAnnouncement />}
+        />
+      </Routes>
+
+      {showBottomNav && <BottomNav />}
     </div>
   );
 };
 
 const App: React.FC = () => {
-  // 🔆 Global Dark Mode Initialization
+  // global dark mode init
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     const systemPrefersDark = window.matchMedia(
@@ -45,27 +84,7 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <Layout>
-        <Routes>
-          {/* Student routes */}
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/mess" element={<MessMenu />} />
-          <Route path="/maintenance" element={<Maintenance />} />
-          <Route path="/community" element={<Community />} />
-          <Route path="/announcements" element={<Announcements />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/my-complaints" element={<StudentComplaints />} />
-
-          {/* Staff routes */}
-          <Route path="/staff-dashboard" element={<StaffDashboard />} />
-          <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
-          <Route path="/staff/edit-menu" element={<EditMessMenu />} />
-          <Route path="/staff/students" element={<StudentsDirectory />} />
-          <Route path="/staff/student/:id" element={<StudentProfile />} />
-        </Routes>
-      </Layout>
+      <AppRoutes />
     </Router>
   );
 };

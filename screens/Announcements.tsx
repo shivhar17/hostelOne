@@ -20,6 +20,7 @@ interface Announcement {
   type: string;
   createdAt: any;
   readBy?: string[];
+  audience?: string;
 }
 
 export const Announcements: React.FC = () => {
@@ -28,22 +29,20 @@ export const Announcements: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [studentId, setStudentId] = useState<string | null>(null);
 
-  // 🔐 Get studentId from localStorage
+  // get student id
   useEffect(() => {
     const savedStudent = localStorage.getItem("student");
     if (savedStudent) {
       try {
         const parsed = JSON.parse(savedStudent);
-        if (parsed.studentId) {
-          setStudentId(parsed.studentId);
-        }
+        if (parsed.studentId) setStudentId(parsed.studentId);
       } catch {
-        // ignore parse errors
+        // ignore
       }
     }
   }, []);
 
-  // 🔥 Live announcements listener
+  // live announcements
   useEffect(() => {
     const q = query(
       collection(db, "announcements"),
@@ -53,7 +52,7 @@ export const Announcements: React.FC = () => {
     const unsub = onSnapshot(
       q,
       (snapshot) => {
-        const data = snapshot.docs.map((snap) => {
+        const list = snapshot.docs.map((snap) => {
           const raw = snap.data() as any;
           return {
             id: snap.id,
@@ -62,10 +61,11 @@ export const Announcements: React.FC = () => {
             type: raw.type || "general",
             createdAt: raw.createdAt,
             readBy: raw.readBy || [],
+            audience: raw.audience || "All Students",
           } as Announcement;
         });
 
-        setAnnouncements(data);
+        setAnnouncements(list);
         setLoading(false);
       },
       (err) => {
@@ -77,7 +77,7 @@ export const Announcements: React.FC = () => {
     return () => unsub();
   }, []);
 
-  // ✅ Mark all announcements as read for this student when the screen is open
+  // mark as read in readBy[]
   useEffect(() => {
     if (!studentId || announcements.length === 0) return;
 
@@ -129,18 +129,17 @@ export const Announcements: React.FC = () => {
         )}
 
         {!loading && announcements.length === 0 && (
-          <p className="text-center text-slate-400">
-            No announcements yet
-          </p>
+          <p className="text-center text-slate-400">No announcements yet</p>
         )}
 
         {announcements.map((notice) => {
           const Icon = getIcon(notice.type);
 
           return (
-            <div
+            <button
               key={notice.id}
-              className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm flex items-center gap-4 active:scale-98 transition-all border-l-4 border-teal-500"
+              onClick={() => navigate(`/announcement/${notice.id}`)}
+              className="w-full text-left bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm flex items-center gap-4 active:scale-[0.98] transition-all border-l-4 border-teal-500"
             >
               <div className="w-12 h-12 rounded-full flex items-center justify-center bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400">
                 <Icon size={20} />
@@ -149,11 +148,14 @@ export const Announcements: React.FC = () => {
                 <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-1">
                   {notice.title}
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-slate-400 mb-1">
+                  For: {notice.audience || "All Students"}
+                </p>
+                <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
                   {notice.message}
                 </p>
               </div>
-            </div>
+            </button>
           );
         })}
       </div>
