@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Utensils,
   Wrench,
   Volume2,
   Users,
@@ -10,6 +9,7 @@ import {
   Sun,
   Loader2,
   BedDouble,
+  WashingMachine,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import {
@@ -60,7 +60,11 @@ export const Dashboard: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const startY = useRef(0);
 
-  // theme
+  // announcement notification helpers
+  const announcementsInitializedRef = useRef(false);
+  const previousUnreadCountRef = useRef(0);
+
+  // theme toggle
   useEffect(() => {
     if (isDarkMode) {
       document.documentElement.classList.add("dark");
@@ -71,7 +75,7 @@ export const Dashboard: React.FC = () => {
     }
   }, [isDarkMode]);
 
-  // load user + studentId
+  // load user from localStorage
   useEffect(() => {
     const savedProfile = localStorage.getItem("userProfile");
     const savedStudent = localStorage.getItem("student");
@@ -86,20 +90,24 @@ export const Dashboard: React.FC = () => {
         name = parsed.name || name;
         photo = parsed.photo || photo;
         id = parsed.id || null;
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     } else if (savedStudent) {
       try {
         const parsed = JSON.parse(savedStudent);
         name = parsed.name || name;
         id = parsed.studentId || null;
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     }
 
     setUserProfile({ name, photo });
     setStudentId(id);
   }, []);
 
-  // realtime mess menu listener
+  // realtime mess menu listener (big card)
   useEffect(() => {
     const ref = doc(db, "messMenu", "today");
 
@@ -133,7 +141,7 @@ export const Dashboard: React.FC = () => {
     return () => unsub();
   }, [refreshKey]);
 
-  // realtime unread announcements count
+  // 🔔 unread announcements + small browser notification
   useEffect(() => {
     if (!studentId) return;
 
@@ -146,17 +154,54 @@ export const Dashboard: React.FC = () => {
       q,
       (snapshot) => {
         let count = 0;
-        snapshot.forEach((docSnap) => {
+        let latestTitle: string | null = null;
+        let latestMessage: string | null = null;
+
+        // ✅ FIX: use snapshot.docs.forEach to get index
+        snapshot.docs.forEach((docSnap, index) => {
           const data = docSnap.data() as any;
           const readBy: string[] = data.readBy || [];
-          if (!readBy.includes(studentId)) {
-            count += 1;
+
+          if (!readBy.includes(studentId)) count += 1;
+
+          if (index === 0) {
+            latestTitle = data.title || "New announcement";
+            latestMessage = data.message || "";
           }
         });
+
         setUnreadCount(count);
+
+        // show notification only after first load
+        if (announcementsInitializedRef.current) {
+          const previous = previousUnreadCountRef.current;
+
+          if (
+            count > previous &&
+            typeof window !== "undefined" &&
+            "Notification" in window
+          ) {
+            if (Notification.permission === "granted") {
+              try {
+                new Notification(latestTitle || "New announcement", {
+                  body: latestMessage || "",
+                  icon: "/icons/icon-192.png",
+                });
+              } catch (err) {
+                console.error("Notification error:", err);
+              }
+            } else if (Notification.permission === "default") {
+              Notification.requestPermission().catch(() => {});
+            }
+          }
+        } else {
+          announcementsInitializedRef.current = true;
+        }
+
+        previousUnreadCountRef.current = count;
       },
       (err) => {
-        console.error("announcement badge error", err);
+        console.error("announcement badge/notification error", err);
       }
     );
 
@@ -295,7 +340,7 @@ export const Dashboard: React.FC = () => {
           Good Morning, {getFirstName(userProfile.name)}!
         </h1>
 
-        {/* Menu Card */}
+        {/* BIG Today’s Menu card (kept) */}
         <motion.div
           key={refreshKey}
           initial={{ y: 20, opacity: 0 }}
@@ -341,14 +386,16 @@ export const Dashboard: React.FC = () => {
 
         {/* Quick Actions Grid */}
         <div className="grid grid-cols-2 gap-4">
+          {/* SMALL Laundry card */}
           <MenuButton
-            icon={Utensils}
-            label="Mess Menu"
-            subLabel="View today's food"
-            color="bg-emerald-50 dark:bg-emerald-900/20"
-            iconColor="text-emerald-600 dark:text-emerald-400"
-            onClick={() => navigate("/mess")}
+            icon={WashingMachine}
+            label="Laundry"
+            subLabel="Book your slot"
+            color="bg-cyan-50 dark:bg-cyan-900/20"
+            iconColor="text-cyan-600 dark:text-cyan-400"
+            onClick={() => navigate("/laundry")}
           />
+
           <MenuButton
             icon={Volume2}
             label="Announcements"
@@ -358,6 +405,7 @@ export const Dashboard: React.FC = () => {
             onClick={() => navigate("/announcements")}
             badgeCount={unreadCount}
           />
+
           <MenuButton
             icon={Wrench}
             label="Maintenance"
@@ -366,10 +414,11 @@ export const Dashboard: React.FC = () => {
             iconColor="text-purple-600 dark:text-purple-400"
             onClick={() => navigate("/maintenance")}
           />
+
           <MenuButton
             icon={Users}
             label="Community"
-            subLabel="Events & Groups"
+            subLabel="Chat & Support"
             color="bg-orange-50 dark:bg-orange-900/20"
             iconColor="text-orange-600 dark:text-orange-400"
             onClick={() => navigate("/community")}
@@ -404,7 +453,6 @@ const MenuButton: React.FC<MenuButtonProps> = ({
     onClick={onClick}
     className={`${color} relative p-5 rounded-[1.5rem] flex flex-col items-start text-left h-40 justify-between transition-all hover:shadow-md border border-transparent dark:border-white/5`}
   >
-    {/* Badge */}
     {badgeCount > 0 && (
       <div className="absolute top-3 right-3 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
         {badgeCount}

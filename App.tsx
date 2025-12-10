@@ -26,6 +26,7 @@ import { StudentProfile } from "./screens/StudentProfile";
 import { StaffNewAnnouncement } from "./screens/StaffNewAnnouncement";
 
 import { BottomNav } from "./components/BottomNav";
+import { Laundry } from "./screens/Laundry";
 
 const AppRoutes: React.FC = () => {
   const location = useLocation();
@@ -59,6 +60,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/announcement/:id" element={<AnnouncementPreview />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/my-complaints" element={<StudentComplaints />} />
+        <Route path="/laundry" element={<Laundry />} />
 
         {/* staff */}
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
