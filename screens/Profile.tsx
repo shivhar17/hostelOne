@@ -18,7 +18,7 @@ export const Profile: React.FC = () => {
     const savedProfile = localStorage.getItem('userProfile');
     const savedStudent = localStorage.getItem('student');
 
-    let name = 'Alex Doe';
+    let name = 'student';
     let id = '21BCE1234';
     let photo = 'https://picsum.photos/150/150?random=10';
     let roomNo = 'A-302';
