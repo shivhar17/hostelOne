@@ -337,7 +337,7 @@ export const Dashboard: React.FC = () => {
         </div>
 
         <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-8 transition-colors">
-          Good Morning, {getFirstName(userProfile.name)}!
+          Hi, {getFirstName(userProfile.name)}!
         </h1>
 
         {/* BIG Today’s Menu card (kept) */}
