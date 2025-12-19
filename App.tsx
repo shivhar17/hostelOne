@@ -1,4 +1,3 @@
-// src/App.tsx
 import React, { useEffect } from "react";
 import {
   HashRouter as Router,
@@ -29,61 +28,95 @@ import { StaffNewAnnouncement } from "./screens/StaffNewAnnouncement";
 import { BottomNav } from "./components/BottomNav";
 import { Laundry } from "./screens/Laundry";
 
-
-// 🔥 PROTECT ROUTES
+// PROTECTED ROUTE
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const user = localStorage.getItem("student");
-  if (!user) return <Navigate to="/login" replace />;
+  const isLoggedIn =
+    localStorage.getItem("student") || localStorage.getItem("staff");
+
+  if (!isLoggedIn) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
-
 
 const AppRoutes: React.FC = () => {
   const location = useLocation();
 
   const isStaffRoute = location.pathname.startsWith("/staff");
   const isLoginRoute = location.pathname === "/login";
-  const isOnboardingRoute = location.pathname === "/onboarding";
-  const isAnnouncementPreview = location.pathname.startsWith(
-    "/announcement/"
-  );
+  const isOnboarding = location.pathname === "/onboarding";
+  const isAnnouncementPreview = location.pathname.startsWith("/announcement/");
 
   const showBottomNav =
     !isStaffRoute &&
     !isLoginRoute &&
-    !isOnboardingRoute &&
+    !isOnboarding &&
     !isAnnouncementPreview;
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-slate-950 shadow-2xl overflow-y-auto relative no-scrollbar transition-colors duration-300">
+    <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-slate-950 shadow-2xl overflow-y-auto relative no-scrollbar">
 
+      {/* ✅ ALL ROUTES MUST BE INSIDE <Routes> */}
       <Routes>
-        {/* First route → ALWAYS login */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        {/* <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />  :contentReference[oaicite:2]{index=2} */}
 
+        {/* HOME FIX */}
+        <Route
+          path="/"
+          element={
+            localStorage.getItem("student") || localStorage.getItem("staff")
+              ? <Navigate to="/dashboard" replace />
+              : <Navigate to="/login" replace />
+          }
+        />
 
-        <Route path="/onboarding" element={<Onboarding />} />
+        {/* AUTH */}
         <Route path="/login" element={<Login />} />
+        <Route path="/onboarding" element={<Onboarding />} />
 
-        {/* Protected student pages */}
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/mess" element={<ProtectedRoute><MessMenu /></ProtectedRoute>} />
-        <Route path="/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
-        <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
-        <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
-        <Route path="/announcement/:id" element={<ProtectedRoute><AnnouncementPreview /></ProtectedRoute>} />
-        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-        <Route path="/my-complaints" element={<ProtectedRoute><StudentComplaints /></ProtectedRoute>} />
-        <Route path="/laundry" element={<ProtectedRoute><Laundry /></ProtectedRoute>} />
+        {/* STUDENT PAGES */}
+        <Route
+          path="/dashboard"
+          element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
+        />
+        <Route
+          path="/mess"
+          element={<ProtectedRoute><MessMenu /></ProtectedRoute>}
+        />
+        <Route
+          path="/maintenance"
+          element={<ProtectedRoute><Maintenance /></ProtectedRoute>}
+        />
+        <Route
+          path="/community"
+          element={<ProtectedRoute><Community /></ProtectedRoute>}
+        />
+        <Route
+          path="/announcements"
+          element={<ProtectedRoute><Announcements /></ProtectedRoute>}
+        />
+        <Route
+          path="/announcement/:id"
+          element={<ProtectedRoute><AnnouncementPreview /></ProtectedRoute>}
+        />
+        <Route
+          path="/profile"
+          element={<ProtectedRoute><Profile /></ProtectedRoute>}
+        />
+        <Route
+          path="/my-complaints"
+          element={<ProtectedRoute><StudentComplaints /></ProtectedRoute>}
+        />
+        <Route
+          path="/laundry"
+          element={<ProtectedRoute><Laundry /></ProtectedRoute>}
+        />
 
-        {/* Staff pages */}
+        {/* STAFF PAGES */}
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
         <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
         <Route path="/staff/edit-menu" element={<EditMessMenu />} />
         <Route path="/staff/students" element={<StudentsDirectory />} />
         <Route path="/staff/student/:id" element={<StudentProfile />} />
         <Route path="/staff/new-announcement" element={<StaffNewAnnouncement />} />
+
       </Routes>
 
       {showBottomNav && <BottomNav />}
@@ -94,9 +127,8 @@ const AppRoutes: React.FC = () => {
 const App: React.FC = () => {
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
-    const prefersDarkMode = window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-    if (savedTheme === "dark" || (!savedTheme && prefersDarkMode)) {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
