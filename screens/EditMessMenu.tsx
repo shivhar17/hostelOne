@@ -2,25 +2,21 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowLeft,
-  Edit2,
-  Trash2,
   Plus,
-  Check,
+  Trash2,
   Camera,
+  Check,
 } from "lucide-react";
-// import { doc, setDoc, serverTimestamp, getDoc } from "firebase/firestore";
-// import { db } from "../firebase";
+
 import {
-  collection,
-  addDoc,
-  serverTimestamp,
   doc,
   setDoc,
   getDoc,
+  serverTimestamp,
+  addDoc,
+  collection,
 } from "firebase/firestore";
 import { db } from "../firebase";
-
-
 
 interface MenuItem {
   name: string;
@@ -39,106 +35,82 @@ export const EditMessMenu: React.FC = () => {
   const fileInputRef = useRef<{ [key: string]: HTMLInputElement | null }>({});
 
   const [menu, setMenu] = useState<MenuData>({
-    breakfast: [{ name: "Oatmeal" }, { name: "Scrambled Eggs" }],
-    lunch: [
-      { name: "Chicken Curry" },
-      { name: "Steamed Rice" },
-      { name: "Garden Salad" },
-    ],
-    dinner: [{ name: "Lentil Soup" }],
+    breakfast: [],
+    lunch: [],
+    dinner: [],
   });
 
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
 
-  // Load existing menu for selected date (from Firestore, fallback to localStorage)
+  // 🔥 Load existing menu from Firestore (shared across all devices)
   useEffect(() => {
-  const loadMenu = async () => {
+    const loadMenu = async () => {
+      try {
+        const ref = doc(db, "messMenu", date);
+        const snap = await getDoc(ref);
+
+        if (snap.exists()) {
+          const data = snap.data() as any;
+
+          const normalize = (items: any[] = []) =>
+            items.map((i) =>
+              typeof i === "string" ? { name: i } : i
+            );
+
+          setMenu({
+            breakfast: normalize(data.breakfast || []),
+            lunch: normalize(data.lunch || []),
+            dinner: normalize(data.dinner || []),
+          });
+        } else {
+          setMenu({ breakfast: [], lunch: [], dinner: [] });
+        }
+      } catch (err) {
+        console.error("Error loading mess menu:", err);
+      }
+    };
+
+    loadMenu();
+  }, [date]);
+
+  // 🔥 Save menu for this date to Firestore (correct field names)
+  const handlePublish = async () => {
+    const cleanMenu: MenuData = {
+      breakfast: menu.breakfast.filter((i) => i.name.trim() !== ""),
+      lunch: menu.lunch.filter((i) => i.name.trim() !== ""),
+      dinner: menu.dinner.filter((i) => i.name.trim() !== ""),
+    };
+
     try {
-      // 🔹 Always load the shared "today" menu document
-      const ref = doc(db, "messMenu", "today");
-      const snap = await getDoc(ref);
+      await setDoc(doc(db, "messMenu", date), {
+        breakfast: cleanMenu.breakfast,
+        lunch: cleanMenu.lunch,
+        dinner: cleanMenu.dinner,
+        lastUpdated: new Date().toLocaleDateString("en-GB"),
+        updatedAt: serverTimestamp(),
+      });
 
-      if (snap.exists()) {
-        const data = snap.data() as any;
-        // we saved breakFast, Lunch, dinner as arrays of strings
-        const normalize = (items: any[] = []) =>
-          items.map((i) => (typeof i === "string" ? { name: i } : i));
+      // Add announcement
+      await addDoc(collection(db, "announcements"), {
+        title: "Mess Menu Updated",
+        message: "Today's mess menu has been updated.",
+        createdAt: serverTimestamp(),
+        type: "mess",
+        readBy: [],
+      });
 
-        setMenu({
-          breakfast: normalize(data.breakFast || []),
-          lunch: normalize(data.Lunch || []),
-          dinner: normalize(data.dinner || []),
-        });
-        return;
-      }
-
-      // 2) Fallback: old localStorage (if any)
-      const savedMenu = localStorage.getItem("messMenuData");
-      if (savedMenu) {
-        const parsed = JSON.parse(savedMenu);
-        const normalize = (items: any[] = []) =>
-          items.map((i) => (typeof i === "string" ? { name: i } : i));
-
-        setMenu({
-          breakfast: normalize(parsed.breakfast || []),
-          lunch: normalize(parsed.lunch || []),
-          dinner: normalize(parsed.dinner || []),
-        });
-      }
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        navigate("/staff-dashboard");
+      }, 1500);
     } catch (e) {
-      console.error("Failed to load menu", e);
+      alert("Failed to publish menu.");
+      console.error(e);
     }
   };
 
-  loadMenu();
-}, []); // no need for [date] dependency now
-// no need for [date] dependency now
-
-
-  const handlePublish = async () => {
-  // remove empty items
-  const cleanMenu: MenuData = {
-    breakfast: menu.breakfast.filter((i) => i.name.trim() !== ""),
-    lunch: menu.lunch.filter((i) => i.name.trim() !== ""),
-    dinner: menu.dinner.filter((i) => i.name.trim() !== ""),
-  };
-
-  try {
-    // 🔥 Save menu to Firestore (shared doc for all students)
-    await setDoc(doc(db, "messMenu", "today"), {
-      breakFast: cleanMenu.breakfast.map((i) => i.name),
-      Lunch: cleanMenu.lunch.map((i) => i.name),
-      dinner: cleanMenu.dinner.map((i) => i.name),
-      lastUpdated: new Date().toLocaleDateString("en-GB"), // example: 15-03-2025
-      updatedAt: serverTimestamp(),
-    });
-
-    // 🔔 Create announcement entry for students
-    await addDoc(collection(db, "announcements"), {
-      title: "Mess Menu Updated",
-      message: "Today's mess menu has been updated. Check the Mess Menu section!",
-      type: "mess",
-      createdAt: serverTimestamp(),
-      readBy: [],
-    });
-
-    // optional cache for staff view only
-    localStorage.setItem("messMenuData", JSON.stringify(cleanMenu));
-
-    // success UI
-    setShowSuccess(true);
-    setTimeout(() => {
-      setShowSuccess(false);
-      navigate("/staff-dashboard");
-    }, 2000);
-  } catch (e) {
-    console.error("Failed to publish menu", e);
-    alert("Failed to publish menu. Please try again.");
-  }
-};
-
-
-
+  // Helpers
   const addItem = (meal: keyof MenuData) => {
     setMenu((prev) => ({
       ...prev,
@@ -146,171 +118,134 @@ export const EditMessMenu: React.FC = () => {
     }));
   };
 
-  const updateItemName = (
-    meal: keyof MenuData,
-    index: number,
-    newName: string
-  ) => {
-    const newItems = [...menu[meal]];
-    newItems[index] = { ...newItems[index], name: newName };
-    setMenu((prev) => ({ ...prev, [meal]: newItems }));
+  const updateItem = (meal: keyof MenuData, index: number, value: string) => {
+    const updated = [...menu[meal]];
+    updated[index].name = value;
+    setMenu({ ...menu, [meal]: updated });
   };
 
-  const updateItemImage = (
-    meal: keyof MenuData,
-    index: number,
-    file: File
-  ) => {
+  const updateImage = (meal: keyof MenuData, index: number, file: File) => {
     const reader = new FileReader();
     reader.onloadend = () => {
-      const newItems = [...menu[meal]];
-      newItems[index] = { ...newItems[index], image: reader.result as string };
-      setMenu((prev) => ({ ...prev, [meal]: newItems }));
+      const updated = [...menu[meal]];
+      updated[index].image = reader.result as string;
+      setMenu({ ...menu, [meal]: updated });
     };
     reader.readAsDataURL(file);
   };
 
   const removeItem = (meal: keyof MenuData, index: number) => {
-    const newItems = [...menu[meal]];
-    newItems.splice(index, 1);
-    setMenu((prev) => ({ ...prev, [meal]: newItems }));
+    const updated = [...menu[meal]];
+    updated.splice(index, 1);
+    setMenu({ ...menu, [meal]: updated });
   };
 
-  const triggerFileInput = (meal: string, index: number) => {
-    const key = `${meal}-${index}`;
-    fileInputRef.current[key]?.click();
-  };
-
-  const renderMealSection = (title: string, meal: keyof MenuData) => (
+  const renderSection = (title: string, meal: keyof MenuData) => (
     <div>
-      <h2 className="font-bold text-lg mb-4 text-slate-200">{title}</h2>
-      <div className="space-y-3">
-        {menu[meal].map((item, idx) => (
-          <div
-            key={idx}
-            className="bg-[#1E293B] p-3 rounded-xl flex gap-3 items-center group border border-slate-700/50 focus-within:border-blue-500/50 transition-colors"
-          >
-            {/* Image Preview / Upload Button */}
-            <div className="shrink-0 relative">
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                ref={(el) => {
-                  if (el) fileInputRef.current[`${meal}-${idx}`] = el;
-                }}
-                onChange={(e) =>
-                  e.target.files?.[0] &&
-                  updateItemImage(meal, idx, e.target.files[0])
-                }
-              />
-              <button
-                onClick={() => triggerFileInput(meal, idx)}
-                className="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center border border-slate-700 overflow-hidden hover:border-slate-500 transition-colors group/btn"
-              >
-                {item.image ? (
-                  <img
-                    src={item.image}
-                    alt="Item"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <Camera
-                    size={18}
-                    className="text-slate-500 group-hover/btn:text-slate-300"
-                  />
-                )}
-              </button>
-            </div>
+      <h3 className="font-semibold text-lg text-slate-200 mb-2">{title}</h3>
 
-            {/* Text Input */}
-            <div className="flex-1 min-w-0">
-              <input
-                value={item.name}
-                onChange={(e) => updateItemName(meal, idx, e.target.value)}
-                className="bg-transparent outline-none text-white font-medium w-full placeholder:text-slate-600 h-full py-2"
-                placeholder="Item name (e.g. Paneer Tikka)"
-                autoFocus={!item.name}
-              />
-            </div>
-
-            {/* Actions */}
-            <button
-              onClick={() => removeItem(meal, idx)}
-              className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg transition-colors"
-            >
-              <Trash2 size={18} />
-            </button>
-          </div>
-        ))}
-        <button
-          onClick={() => addItem(meal)}
-          className="w-full border-2 border-dashed border-slate-700 rounded-xl p-3 flex items-center justify-center gap-2 text-slate-400 hover:bg-slate-800/50 hover:border-slate-600 transition-all active:scale-95"
+      {menu[meal].map((item, idx) => (
+        <div
+          key={idx}
+          className="bg-slate-800 p-3 rounded-xl flex gap-3 items-center mb-2"
         >
-          <Plus size={18} /> Add Item
-        </button>
-      </div>
+          {/* Image upload */}
+          <input
+            type="file"
+            className="hidden"
+            accept="image/*"
+            ref={(el) => {
+              if (el) fileInputRef.current[`${meal}-${idx}`] = el;
+            }}
+            onChange={(e) =>
+              e.target.files?.[0] &&
+              updateImage(meal, idx, e.target.files[0])
+            }
+          />
+
+          <button
+            className="w-12 h-12 bg-slate-700 rounded-lg flex items-center justify-center overflow-hidden"
+            onClick={() => fileInputRef.current[`${meal}-${idx}`]?.click()}
+          >
+            {item.image ? (
+              <img
+                src={item.image}
+                alt="Food"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Camera className="text-slate-400" size={18} />
+            )}
+          </button>
+
+          {/* Name input */}
+          <input
+            value={item.name}
+            onChange={(e) => updateItem(meal, idx, e.target.value)}
+            placeholder="Item name"
+            className="flex-1 bg-transparent outline-none text-white"
+          />
+
+          <Trash2
+            className="text-red-500"
+            size={20}
+            onClick={() => removeItem(meal, idx)}
+          />
+        </div>
+      ))}
+
+      <button
+        className="mt-2 w-full border border-slate-600 rounded-xl py-2 flex items-center justify-center gap-2 text-slate-300"
+        onClick={() => addItem(meal)}
+      >
+        <Plus size={18} /> Add Item
+      </button>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-white pb-24 relative">
-      {/* Header */}
-      <div className="px-6 pt-12 pb-6 flex items-center gap-4 bg-[#0F172A] sticky top-0 z-20 shadow-sm border-b border-white/5">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 -ml-2 hover:bg-slate-800 rounded-full transition-colors"
-        >
-          <ArrowLeft size={24} />
-        </button>
-        <div>
-          <h1 className="text-xl font-bold">Edit Mess Menu</h1>
-        </div>
+    <div className="min-h-screen bg-slate-900 text-white pb-20">
+      <div className="flex items-center gap-4 p-5 bg-slate-900 sticky top-0 border-b border-slate-700">
+        <ArrowLeft size={24} onClick={() => navigate(-1)} />
+        <h1 className="text-xl font-bold">Edit Mess Menu</h1>
       </div>
 
-      <div className="px-6 mb-8 mt-6">
-        <label className="text-slate-400 text-sm block mb-2 font-medium">
-          Select Date
-        </label>
+      {/* Date Picker */}
+      <div className="p-5">
+        <label className="text-slate-400 text-sm">Select Date</label>
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-[#1E293B] border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 transition-colors"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 mt-2 text-white"
         />
       </div>
 
-      <div className="px-6 space-y-8">
-        {renderMealSection("Breakfast", "breakfast")}
-        {renderMealSection("Lunch", "lunch")}
-        {renderMealSection("Dinner", "dinner")}
+      <div className="p-5 space-y-6">
+        {renderSection("Breakfast", "breakfast")}
+        {renderSection("Lunch", "lunch")}
+        {renderSection("Dinner", "dinner")}
       </div>
 
-      {/* Action Footer */}
-      <div className="p-6 mt-6 space-y-3 pb-safe">
+      {/* Publish */}
+      <div className="p-5">
         <button
           onClick={handlePublish}
-          className="w-full bg-[#22C55E] hover:bg-green-600 text-white font-bold py-4 rounded-xl shadow-lg shadow-green-900/20 transition-all active:scale-95 flex items-center justify-center gap-2"
+          className="w-full bg-green-500 py-4 rounded-xl text-lg font-bold"
         >
-          <Check size={20} /> Publish to Students
+          Publish to Students
         </button>
       </div>
 
-      {/* Success Modal */}
       {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm transition-opacity" />
-          <div className="bg-[#1E293B] w-full max-w-sm rounded-3xl p-8 relative z-10 flex flex-col items-center text-center animate-in fade-in zoom-in duration-300">
-            <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mb-6 shadow-xl shadow-green-500/20">
-              <Check size={48} strokeWidth={3} className="text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-white mb-2">Menu Live!</h3>
-            <p className="text-slate-400 text-sm leading-relaxed max-w-[200px]">
-              The mess menu has been updated for all students.
-            </p>
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center">
+          <div className="bg-slate-800 p-6 rounded-xl text-center">
+            <Check size={48} className="mx-auto text-green-500" />
+            <p className="mt-3 text-white text-lg">Menu Updated!</p>
           </div>
         </div>
       )}
     </div>
   );
 };
+
