@@ -15,6 +15,7 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../firebase";
+import { Dashboard } from "./Dashboard";
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
@@ -36,11 +37,29 @@ export const Login: React.FC = () => {
       return;
     }
 
-    // STAFF LOGIN (you can later add real staff auth here)
-    if (isStaffLogin) {
-      navigate("/staff-dashboard");
-      return;
-    }
+  // STAFF LOGIN
+if (isStaffLogin) {
+  if (formData.email.trim().toLowerCase() === "staff17@ro") {
+
+    const staff = {
+      id: "staff",
+      name: "Hostel Staff",
+      email: "staff17@ro",
+      role: "staff",
+    };
+
+    localStorage.setItem("student", JSON.stringify(staff));
+    localStorage.setItem("userProfile", JSON.stringify(staff));
+
+    navigate("/staff-dashboard");
+  } else {
+    alert("Invalid Staff Email");
+  }
+  return;
+}
+
+
+
 
     // STUDENT LOGIN
     if (!formData.name) {
@@ -108,14 +127,14 @@ export const Login: React.FC = () => {
         photo: defaultPhoto,
         roomNo: "A-101",
         messPlan: "Veg - Full Plan",
-        contactNo: "+91 1234567890",
+        contactNo: "+91 00000 00000",
       };
 
       localStorage.setItem("userProfile", JSON.stringify(userProfile));
 
       alert(`✅ Login Successful!\nYour Student ID: ${studentData.studentId}`);
 
-      navigate("/dashboard"); // student dashboard
+      navigate("/Dashboard"); // student dashboard
     } catch (err) {
       console.error(err);
       alert("❌ Login failed");
