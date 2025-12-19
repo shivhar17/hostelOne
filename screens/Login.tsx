@@ -1,5 +1,4 @@
-// src/screens/Login.tsx
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowLeftRight } from "lucide-react";
 
@@ -25,22 +24,6 @@ export const Login: React.FC = () => {
     email: "",
   });
   const [submitting, setSubmitting] = useState(false);
-
-  // If already logged in (localStorage), redirect to dashboard
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("student");
-      if (raw) {
-        const st = JSON.parse(raw);
-        if (st?.email) {
-          navigate("/dashboard");
-        }
-      }
-    } catch {
-      localStorage.removeItem("student");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Generate random student id
   const generateStudentId = () => {
@@ -76,7 +59,7 @@ export const Login: React.FC = () => {
       let studentData: any;
 
       if (!snapshot.empty) {
-        // Existing student → update login info
+        // ✅ Existing student → update login info
         const docSnap = snapshot.docs[0];
         const ref = doc(db, "students", docSnap.id);
 
@@ -93,7 +76,7 @@ export const Login: React.FC = () => {
           email: data.email,
         };
       } else {
-        // New student → create in Firestore
+        // ✅ New student → create in Firestore
         const studentId = generateStudentId();
 
         const newStudent = {
@@ -113,10 +96,10 @@ export const Login: React.FC = () => {
         };
       }
 
-      // Save session for student (for other pages)
+      // ✅ Save session for student (for other pages)
       localStorage.setItem("student", JSON.stringify(studentData));
 
-      // ALSO save a userProfile used by Dashboard + Profile
+      // ✅ ALSO save a userProfile used by Dashboard + Profile
       const defaultPhoto = "https://picsum.photos/100/100?random=10";
 
       const userProfile = {
@@ -125,12 +108,11 @@ export const Login: React.FC = () => {
         photo: defaultPhoto,
         roomNo: "A-101",
         messPlan: "Veg - Full Plan",
-        contactNo: "+91 00000 00000",
+        contactNo: "+91 1234567890",
       };
 
       localStorage.setItem("userProfile", JSON.stringify(userProfile));
 
-      // Feedback + navigate
       alert(`✅ Login Successful!\nYour Student ID: ${studentData.studentId}`);
 
       navigate("/dashboard"); // student dashboard
