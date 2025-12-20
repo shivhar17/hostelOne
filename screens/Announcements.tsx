@@ -1,164 +1,230 @@
-// src/screens/Announcements.tsx
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Utensils, PartyPopper, AlertCircle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import {
   collection,
+  onSnapshot,
   query,
   orderBy,
-  onSnapshot,
   updateDoc,
   doc,
-  arrayUnion,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { useNavigate } from "react-router-dom";
+import {
+  Megaphone,
+  Info,
+  AlertTriangle,
+  CheckCircle,
+} from "lucide-react";
 
 interface Announcement {
   id: string;
   title: string;
   message: string;
   type: string;
+  image?: string | null;
+  pinned: boolean;
   createdAt: any;
-  readBy?: string[];
-  audience?: string;
+  readBy: string[];
+  audience: string;
 }
 
 export const Announcements: React.FC = () => {
   const navigate = useNavigate();
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [studentId, setStudentId] = useState<string | null>(null);
 
-  // get student id
-  useEffect(() => {
-    const savedStudent = localStorage.getItem("student");
-    if (savedStudent) {
-      try {
-        const parsed = JSON.parse(savedStudent);
-        if (parsed.studentId) setStudentId(parsed.studentId);
-      } catch {
-        // ignore
-      }
+  const student = JSON.parse(localStorage.getItem("student") || "{}");
+  const studentId = student?.id || "unknown";
+
+  // ICON SELECTOR
+  const getIcon = (type: string) => {
+    switch (type) {
+      case "urgent":
+      case "warning":
+        return AlertTriangle;
+      case "event":
+        return Megaphone;
+      case "success":
+        return CheckCircle;
+      default:
+        return Info;
     }
-  }, []);
+  };
 
-  // live announcements
+  // DATE SEPARATOR LOGIC
+  const formatDateSeparator = (timestamp: any) => {
+    if (!timestamp) return "";
+
+    const date = timestamp.toDate();
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    const isToday =
+      date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+
+    const isYesterday =
+      date.getDate() === yesterday.getDate() &&
+      date.getMonth() === yesterday.getMonth() &&
+      date.getFullYear() === yesterday.getFullYear();
+
+    if (isToday) return "Today";
+    if (isYesterday) return "Yesterday";
+
+    return date.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
+  // FETCH FIRESTORE ANNOUNCEMENTS
   useEffect(() => {
     const q = query(
       collection(db, "announcements"),
       orderBy("createdAt", "desc")
     );
 
-    const unsub = onSnapshot(
-      q,
-      (snapshot) => {
-        const list = snapshot.docs.map((snap) => {
-          const raw = snap.data() as any;
-          return {
-            id: snap.id,
-            title: raw.title || "",
-            message: raw.message || "",
-            type: raw.type || "general",
-            createdAt: raw.createdAt,
-            readBy: raw.readBy || [],
-            audience: raw.audience || "All Students",
-          } as Announcement;
-        });
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const list: Announcement[] = snapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+      })) as Announcement[];
 
-        setAnnouncements(list);
-        setLoading(false);
-      },
-      (err) => {
-        console.error("Announcements listener error:", err);
-        setLoading(false);
-      }
-    );
+      setAnnouncements(list);
+      setLoading(false);
 
-    return () => unsub();
+      // mark as read
+      list.forEach(async (a) => {
+        if (!a.readBy?.includes(studentId)) {
+          await updateDoc(doc(db, "announcements", a.id), {
+            readBy: [...(a.readBy || []), studentId],
+          });
+        }
+      });
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // mark as read in readBy[]
-  useEffect(() => {
-    if (!studentId || announcements.length === 0) return;
+  const pinned = announcements.filter((a) => a.pinned);
+  const others = announcements.filter((a) => !a.pinned);
 
-    announcements.forEach(async (ann) => {
-      const alreadyRead = ann.readBy?.includes(studentId);
-      if (alreadyRead) return;
-
-      try {
-        const ref = doc(db, "announcements", ann.id);
-        await updateDoc(ref, {
-          readBy: arrayUnion(studentId),
-        });
-      } catch (err) {
-        console.error("Failed to update readBy for announcement:", ann.id, err);
-      }
-    });
-  }, [studentId, announcements]);
-
-  const getIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "mess":
-        return Utensils;
-      case "event":
-        return PartyPopper;
-      default:
-        return AlertCircle;
-    }
-  };
+  // GROUP BY DATE
+  const groupedByDate: { [key: string]: Announcement[] } = {};
+  others.forEach((a) => {
+    const key = formatDateSeparator(a.createdAt);
+    if (!groupedByDate[key]) groupedByDate[key] = [];
+    groupedByDate[key].push(a);
+  });
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] dark:bg-slate-950 flex flex-col transition-colors duration-300 pb-24">
-      {/* Header */}
-      <div className="bg-white dark:bg-slate-900 px-6 pt-12 pb-6 shadow-sm flex items-center gap-4 sticky top-0 z-20">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 -ml-2 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full"
-        >
-          <ArrowLeft size={24} className="text-slate-800 dark:text-white" />
-        </button>
-        <h1 className="text-xl font-bold text-slate-800 dark:text-white">
-          Announcements
-        </h1>
+    <div className="p-5 space-y-6">
+
+      {/* LOADING */}
+      {loading && (
+        <p className="text-center text-gray-400">Loading announcements...</p>
+      )}
+
+      {/* NO DATA */}
+      {!loading && announcements.length === 0 && (
+        <p className="text-center text-gray-400 mt-10">No announcements yet</p>
+      )}
+
+      {/* 🔥 PINNED SECTION */}
+      {pinned.length > 0 && (
+        <div>
+          <h2 className="text-lg font-bold mb-2 text-yellow-500">
+            📌 Pinned Notices
+          </h2>
+
+          <div className="space-y-4">
+            {pinned.map((a) => (
+              <div
+                key={a.id}
+                onClick={() => navigate(`/announcement/${a.id}`)}
+                className="bg-gradient-to-br from-yellow-500 to-orange-600 text-white p-5 rounded-3xl shadow-lg active:scale-95 transition-all cursor-pointer"
+              >
+                <h3 className="text-lg font-bold">{a.title}</h3>
+                <p className="text-sm mt-1 opacity-90">{a.message}</p>
+
+                {a.image && (
+                  <img
+                    src={a.image}
+                    className="mt-3 rounded-xl shadow border border-white/20"
+                    alt=""
+                  />
+                )}
+
+                <div className="mt-3 text-xs opacity-80">
+                  {a.audience} • {a.type.toUpperCase()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🔵 DATE-GROUPED ANNOUNCEMENTS */}
+      <div className="space-y-10">
+        {Object.keys(groupedByDate).map((dateKey) => (
+          <div key={dateKey}>
+            {/* Date separator */}
+            <h2 className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-3 px-1">
+              {dateKey}
+            </h2>
+
+            <div className="space-y-4">
+              {groupedByDate[dateKey].map((a) => {
+                const Icon = getIcon(a.type);
+
+                return (
+                  <div
+                    key={a.id}
+                    onClick={() => navigate(`/announcement/${a.id}`)}
+                    className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-md flex gap-4 active:scale-[0.98] transition cursor-pointer"
+                  >
+                    {/* Icon bubble */}
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-slate-100 dark:bg-slate-800">
+                      <Icon
+                        size={22}
+                        className="text-slate-600 dark:text-slate-300"
+                      />
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-slate-800 dark:text-white">
+                        {a.title}
+                      </h3>
+
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">
+                        {a.message}
+                      </p>
+
+                      {a.image && (
+                        <img
+                          src={a.image}
+                          alt=""
+                          className="mt-3 rounded-lg shadow border border-slate-200 dark:border-slate-700"
+                        />
+                      )}
+
+                      <div className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
+                        {a.audience} • {a.type.toUpperCase()}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* List */}
-      <div className="p-6 space-y-4">
-        {loading && (
-          <p className="text-center text-slate-500">Loading announcements...</p>
-        )}
-
-        {!loading && announcements.length === 0 && (
-          <p className="text-center text-slate-400">No announcements yet</p>
-        )}
-
-        {announcements.map((notice) => {
-          const Icon = getIcon(notice.type);
-
-          return (
-            <button
-              key={notice.id}
-              onClick={() => navigate(`/announcement/${notice.id}`)}
-              className="w-full text-left bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm flex items-center gap-4 active:scale-[0.98] transition-all border-l-4 border-teal-500"
-            >
-              <div className="w-12 h-12 rounded-full flex items-center justify-center bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400">
-                <Icon size={20} />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 mb-1">
-                  {notice.title}
-                </h3>
-                <p className="text-xs text-slate-400 mb-1">
-                  For: {notice.audience || "All Students"}
-                </p>
-                <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
-                  {notice.message}
-                </p>
-              </div>
-            </button>
-          );
-        })}
-      </div>
     </div>
   );
 };
+

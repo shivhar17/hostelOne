@@ -25,8 +25,14 @@ import { StudentsDirectory } from "./screens/StudentDirectory";
 import { StudentProfile } from "./screens/StudentProfile";
 import { StaffNewAnnouncement } from "./screens/StaffNewAnnouncement";
 
-import { BottomNav } from "./components/BottomNav";
 import { Laundry } from "./screens/Laundry";
+
+// NEW FIXED IMPORTS
+import { StaffAnnouncementList } from "./screens/StaffAnnouncementList";
+import { StaffEditAnnouncement } from "./screens/StaffEditAnnouncement";
+
+import { BottomNav } from "./components/BottomNav";
+
 
 // PROTECTED ROUTE
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -36,6 +42,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   if (!isLoggedIn) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
+
 
 const AppRoutes: React.FC = () => {
   const location = useLocation();
@@ -51,10 +58,10 @@ const AppRoutes: React.FC = () => {
     !isOnboarding &&
     !isAnnouncementPreview;
 
+
   return (
     <div className="max-w-md mx-auto min-h-screen bg-white dark:bg-slate-950 shadow-2xl overflow-y-auto relative no-scrollbar">
 
-      {/* ✅ ALL ROUTES MUST BE INSIDE <Routes> */}
       <Routes>
 
         {/* HOME FIX */}
@@ -67,55 +74,32 @@ const AppRoutes: React.FC = () => {
           }
         />
 
-        {/* AUTH */}
+        {/* LOGIN + ONBOARDING */}
         <Route path="/login" element={<Login />} />
         <Route path="/onboarding" element={<Onboarding />} />
 
-        {/* STUDENT PAGES */}
-        <Route
-          path="/dashboard"
-          element={<ProtectedRoute><Dashboard /></ProtectedRoute>}
-        />
-        <Route
-          path="/mess"
-          element={<ProtectedRoute><MessMenu /></ProtectedRoute>}
-        />
-        <Route
-          path="/maintenance"
-          element={<ProtectedRoute><Maintenance /></ProtectedRoute>}
-        />
-        <Route
-          path="/community"
-          element={<ProtectedRoute><Community /></ProtectedRoute>}
-        />
-        <Route
-          path="/announcements"
-          element={<ProtectedRoute><Announcements /></ProtectedRoute>}
-        />
-        <Route
-          path="/announcement/:id"
-          element={<ProtectedRoute><AnnouncementPreview /></ProtectedRoute>}
-        />
-        <Route
-          path="/profile"
-          element={<ProtectedRoute><Profile /></ProtectedRoute>}
-        />
-        <Route
-          path="/my-complaints"
-          element={<ProtectedRoute><StudentComplaints /></ProtectedRoute>}
-        />
-        <Route
-          path="/laundry"
-          element={<ProtectedRoute><Laundry /></ProtectedRoute>}
-        />
+        {/* STUDENT ROUTES */}
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/mess" element={<ProtectedRoute><MessMenu /></ProtectedRoute>} />
+        <Route path="/maintenance" element={<ProtectedRoute><Maintenance /></ProtectedRoute>} />
+        <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} />
+        <Route path="/announcements" element={<ProtectedRoute><Announcements /></ProtectedRoute>} />
+        <Route path="/announcement/:id" element={<ProtectedRoute><AnnouncementPreview /></ProtectedRoute>} />
+        <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+        <Route path="/my-complaints" element={<ProtectedRoute><StudentComplaints /></ProtectedRoute>} />
+        <Route path="/laundry" element={<ProtectedRoute><Laundry /></ProtectedRoute>} />
 
-        {/* STAFF PAGES */}
+        {/* STAFF ROUTES */}
         <Route path="/staff-dashboard" element={<StaffDashboard />} />
         <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
         <Route path="/staff/edit-menu" element={<EditMessMenu />} />
         <Route path="/staff/students" element={<StudentsDirectory />} />
         <Route path="/staff/student/:id" element={<StudentProfile />} />
         <Route path="/staff/new-announcement" element={<StaffNewAnnouncement />} />
+
+        {/* NEW ANNOUNCEMENT MANAGEMENT SCREENS */}
+        <Route path="/staff/announcements-list" element={<StaffAnnouncementList />} />
+        <Route path="/staff/edit-notice/:id" element={<StaffEditAnnouncement />} />
 
       </Routes>
 
@@ -124,10 +108,12 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+
 const App: React.FC = () => {
   useEffect(() => {
     const savedTheme = localStorage.getItem("theme");
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+
     if (savedTheme === "dark" || (!savedTheme && prefersDark)) {
       document.documentElement.classList.add("dark");
     } else {
@@ -141,5 +127,6 @@ const App: React.FC = () => {
     </Router>
   );
 };
+
 
 export default App;

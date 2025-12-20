@@ -250,4 +250,3 @@ export const Community: React.FC = () => {
     </div>
   );
 };
-

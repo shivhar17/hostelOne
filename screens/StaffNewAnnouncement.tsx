@@ -1,9 +1,9 @@
-// src/screens/StaffNewAnnouncement.tsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload, Star } from "lucide-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, storage } from "../firebase";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 type AudienceOption =
   | "All Students"
@@ -23,42 +23,45 @@ export const StaffNewAnnouncement: React.FC = () => {
   const [message, setMessage] = useState("");
   const [audience, setAudience] = useState<AudienceOption>("All Students");
   const [type, setType] = useState<AnnouncementType>("general");
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
-      alert("Please enter both title and message.");
+      alert("Please enter title and message.");
       return;
     }
 
     try {
       setSending(true);
+
+      let imageUrl = null;
+      if (imageFile) {
+        const imgRef = ref(storage, `announcements/${Date.now()}_${imageFile.name}`);
+        await uploadBytes(imgRef, imageFile);
+        imageUrl = await getDownloadURL(imgRef);
+      }
+
       await addDoc(collection(db, "announcements"), {
         title: title.trim(),
         message: message.trim(),
         audience,
         type,
+        pinned,
+        image: imageUrl,
         createdAt: serverTimestamp(),
-        readBy: [], // students will be added here
+        readBy: [],
       });
 
       setSending(false);
-      // after send, go to student Announcements list
       navigate("/announcements");
     } catch (err) {
-      console.error("Failed to send announcement", err);
+      console.error(err);
+      alert("Failed to send");
       setSending(false);
-      alert("Failed to send. Please try again.");
     }
-  };
-
-  const handlePreview = () => {
-    if (!title.trim() || !message.trim()) {
-      alert("Please enter both title and message before preview.");
-      return;
-    }
-    setPreviewOpen(true);
   };
 
   const audienceOptions: AudienceOption[] = [
@@ -73,75 +76,66 @@ export const StaffNewAnnouncement: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#050316] text-white flex flex-col">
-      {/* Top bar */}
+
+      {/* Header */}
       <div className="px-5 pt-12 pb-5 flex items-center gap-3">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 rounded-full hover:bg-white/10"
-        >
+        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-white/10">
           <ArrowLeft size={22} />
         </button>
-        <h1 className="text-xl font-semibold">New Announcement</h1>
+        <h1 className="text-xl font-semibold">New Notice</h1>
       </div>
 
-      {/* Form */}
-      <div className="flex-1 px-5 space-y-6 pb-8 overflow-y-auto">
+      {/* View Notice List Button */}
+      <button
+        onClick={() => navigate("/staff/announcements-list")}
+        className="w-[90%] mx-auto bg-purple-600 py-3 rounded-xl mb-4"
+      >
+        View Uploaded Notices
+      </button>
+
+      {/* FORM */}
+      <div className="flex-1 px-5 space-y-6 pb-10 overflow-y-auto">
+
         {/* Title */}
         <div>
-          <label className="block mb-2 text-sm font-semibold tracking-wide">
-            Title
-          </label>
-          <div className="bg-[#11101A] rounded-3xl px-4 py-3 border border-white/5">
-            <textarea
-              rows={2}
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none resize-none text-white placeholder:text-slate-500"
-              placeholder="e.g, Water Supply Maintenance"
-            />
-          </div>
+          <label className="text-sm">Title</label>
+          <textarea
+            rows={2}
+            className="w-full bg-[#11101A] p-3 rounded-2xl mt-1 outline-none"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Water Supply Alert"
+          />
         </div>
 
         {/* Message */}
         <div>
-          <label className="block mb-2 text-sm font-semibold tracking-wide">
-            Message
-          </label>
-          <div className="bg-[#11101A] rounded-3xl px-4 py-3 border border-white/5">
-            <textarea
-              rows={5}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              className="w-full bg-transparent text-sm outline-none resize-none text-white placeholder:text-slate-500"
-              placeholder="Enter the details of the announcement here..."
-            />
-          </div>
+          <label className="text-sm">Message</label>
+          <textarea
+            rows={5}
+            className="w-full bg-[#11101A] p-3 rounded-2xl mt-1 outline-none"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Write full notice details here..."
+          />
         </div>
 
-        {/* Type (Urgent / General) */}
+        {/* Priority */}
         <div>
-          <label className="block mb-2 text-sm font-semibold tracking-wide">
-            Priority
-          </label>
-          <div className="flex gap-3 flex-wrap">
+          <label className="text-sm">Priority</label>
+          <div className="flex gap-3 mt-2">
             <button
-              type="button"
               onClick={() => setType("general")}
-              className={`px-4 py-2 rounded-full text-xs font-semibold border ${
-                type === "general"
-                  ? "bg-[#7C3AED] border-[#7C3AED] text-white"
-                  : "bg-[#11101A] border-white/10 text-slate-200"
+              className={`px-4 py-2 rounded-full ${
+                type === "general" ? "bg-purple-600" : "bg-[#11101A]"
               }`}
             >
               General
             </button>
             <button
-              type="button"
               onClick={() => setType("urgent")}
-              className={`px-4 py-2 rounded-full text-xs font-semibold border ${
-                type === "urgent"
-                  ? "bg-[#F97373] border-[#F97373] text-white"
-                  : "bg-[#11101A] border-white/10 text-slate-200"
+              className={`px-4 py-2 rounded-full ${
+                type === "urgent" ? "bg-red-500" : "bg-[#11101A]"
               }`}
             >
               Urgent
@@ -149,93 +143,68 @@ export const StaffNewAnnouncement: React.FC = () => {
           </div>
         </div>
 
-        {/* Audience selection */}
+        {/* Pin Notice */}
         <div>
-          <label className="block mb-2 text-sm font-semibold tracking-wide">
-            Send To
+          <label className="text-sm">Pin Notice</label>
+          <button
+            onClick={() => setPinned(!pinned)}
+            className={`px-4 py-2 rounded-full flex items-center gap-2 mt-2 ${
+              pinned ? "bg-yellow-400 text-black" : "bg-[#11101A]"
+            }`}
+          >
+            <Star size={16} fill={pinned ? "black" : "none"} />
+            {pinned ? "Pinned" : "Tap to Pin"}
+          </button>
+        </div>
+
+        {/* Image Upload */}
+        <div>
+          <label className="text-sm">Attach Image (optional)</label>
+
+          <label className="flex items-center gap-2 bg-[#11101A] p-3 rounded-2xl mt-2 cursor-pointer">
+            <Upload size={18} />
+            <span>{imageFile ? imageFile.name : "Upload Image"}</span>
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files && setImageFile(e.target.files[0])}
+            />
           </label>
-          <div className="flex flex-wrap gap-3">
-            {audienceOptions.map((opt) => (
+        </div>
+
+        {/* Audience */}
+        <div>
+          <label className="text-sm">Audience</label>
+          <div className="flex flex-wrap gap-2 mt-2">
+            {audienceOptions.map((a) => (
               <button
-                key={opt}
-                type="button"
-                onClick={() => setAudience(opt)}
-                className={`px-4 py-2 rounded-full text-xs font-semibold border ${
-                  audience === opt
-                    ? "bg-[#7C3AED] border-[#7C3AED] text-white"
-                    : "bg-[#11101A] border-white/10 text-slate-100"
+                key={a}
+                onClick={() => setAudience(a)}
+                className={`px-4 py-2 rounded-full text-xs ${
+                  audience === a ? "bg-purple-600" : "bg-[#11101A]"
                 }`}
               >
-                {opt}
+                {a}
               </button>
             ))}
           </div>
         </div>
+
       </div>
 
-      {/* Bottom buttons */}
-      <div className="px-5 pb-7 flex gap-4">
-        <button
-          onClick={handlePreview}
-          className="flex-1 h-12 rounded-full border border-[#7C3AED] text-[#7C3AED] text-sm font-semibold bg-transparent"
-        >
+      {/* Bottom Buttons */}
+      <div className="p-5 flex gap-4">
+        <button className="flex-1 py-3 rounded-full border border-purple-600 text-purple-600">
           Preview
         </button>
         <button
           onClick={handleSend}
-          disabled={sending}
-          className="flex-1 h-12 rounded-full bg-[#7C3AED] text-white text-sm font-semibold disabled:bg-[#4B2BB8]"
+          className="flex-1 py-3 rounded-full bg-purple-600"
         >
           {sending ? "Sending..." : "Send"}
         </button>
       </div>
-
-      {/* Preview overlay */}
-      {previewOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
-          <div className="w-[90%] max-w-md bg-[#050316] rounded-3xl p-4 flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-slate-200">
-                Announcement Preview
-              </h2>
-              <button
-                onClick={() => setPreviewOpen(false)}
-                className="text-xs text-slate-400"
-              >
-                Close
-              </button>
-            </div>
-
-            {/* White card like design */}
-            <div className="bg-white text-slate-900 rounded-3xl px-5 pt-5 pb-8">
-              {/* Chips */}
-              <div className="flex flex-wrap gap-3 mb-6">
-                <span className="px-4 py-1 rounded-full bg-[#F1E6FF] text-[#6C3BF4] text-xs font-semibold">
-                  For: {audience}
-                </span>
-                <span
-                  className={`px-4 py-1 rounded-full text-xs font-semibold ${
-                    type === "urgent"
-                      ? "bg-[#FFE0E5] text-[#E1063C]"
-                      : "bg-[#E9E9FF] text-[#4C3FFF]"
-                  }`}
-                >
-                  {type === "urgent" ? "Urgent" : "General"}
-                </span>
-              </div>
-
-              <h3 className="text-2xl font-extrabold leading-tight mb-4">
-                {title || "Announcement Title"}
-              </h3>
-
-              <p className="text-[15px] leading-relaxed text-slate-700">
-                {message || "Announcement content will appear here."}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
