@@ -129,16 +129,32 @@ export const StaffDashboard: React.FC = () => {
             <span className="font-semibold text-sm">Directory</span>
           </button>
 
-          {/* Post Announcement */}
-          <button
-            onClick={() => navigate("/staff/new-announcement")}
-            className="bg-[#1E293B] hover:bg-[#263345] p-4 rounded-2xl flex items-center justify-center gap-3 transition-colors group col-span-2"
-          >
-            <div className="p-2 rounded-full bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
-              <Megaphone size={20} />
-            </div>
-            <span className="font-semibold text-sm">Post Announcement</span>
-          </button>
+          {/* Post Announcement and Laundry Bookings in a row */}
+          <div className="col-span-2 grid grid-cols-2 gap-4">
+            <button
+              onClick={() => navigate("/staff/new-announcement")}
+              className="bg-[#1E293B] hover:bg-[#263345] p-4 rounded-2xl flex items-center justify-center gap-3 transition-colors group"
+            >
+              <div className="p-2 rounded-full bg-purple-500/10 text-purple-400 group-hover:bg-purple-500 group-hover:text-white transition-colors">
+                <Megaphone size={20} />
+              </div>
+              <span className="font-semibold text-sm">Post Announcement</span>
+            </button>
+
+            <button
+              onClick={() => navigate("/staff-laundry")}
+              className="bg-[#1E293B] hover:bg-[#263345] p-4 rounded-2xl flex items-center justify-center gap-3 transition-colors group"
+            >
+              <div className="p-2 rounded-full bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 2h18v4H3z"/>
+                  <path d="M21 10v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-8"/>
+                  <path d="m3 10 1.6-2.4A2 2 0 0 1 6.4 6.6l1.6 1.2a2 2 0 0 0 2.4 0l1.6-1.2a2 2 0 0 1 2.4 0l1.6 1.2a2 2 0 0 0 2.4 0l1.6-1.2a2 2 0 0 1 2.4 0L21 10"/>
+                </svg>
+              </div>
+              <span className="font-semibold text-sm">View Laundry Bookings</span>
+            </button>
+          </div>
         </div>
 
         {/* Complaints Section */}

@@ -26,6 +26,8 @@ import { StudentProfile } from "./screens/StudentProfile";
 import { StaffNewAnnouncement } from "./screens/StaffNewAnnouncement";
 
 import { Laundry } from "./screens/Laundry";
+import StaffLaundry from "./screens/StaffLaundry";
+
 
 // NEW FIXED IMPORTS
 import { StaffAnnouncementList } from "./screens/StaffAnnouncementList";
@@ -100,6 +102,9 @@ const AppRoutes: React.FC = () => {
         {/* NEW ANNOUNCEMENT MANAGEMENT SCREENS */}
         <Route path="/staff/announcements-list" element={<StaffAnnouncementList />} />
         <Route path="/staff/edit-notice/:id" element={<StaffEditAnnouncement />} />
+
+        <Route path="/staff-laundry" element={<StaffLaundry />} />
+
 
       </Routes>
 
