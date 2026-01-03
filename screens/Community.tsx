@@ -25,6 +25,7 @@ interface Message {
   time: string;
   isMe: boolean;
   createdAtMillis: number;
+  date: string;
 }
 
 export const Community: React.FC = () => {
@@ -97,6 +98,14 @@ export const Community: React.FC = () => {
                 minute: "2-digit",
               })
             : "";
+          
+          const date = dateObj
+            ? dateObj.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })
+            : '';
 
           return {
             id: d.id,
@@ -105,6 +114,7 @@ export const Community: React.FC = () => {
             time,
             isMe: !fromStaff,
             createdAtMillis: millis,
+            date,
           };
         });
 
@@ -159,9 +169,9 @@ export const Community: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col pb-24">
-      {/* 🔝 Sticky header: Maintenance Support bar fixed at top */}
-      <div className="sticky top-0 z-20 flex items-center justify-between px-4 pt-10 pb-4 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#020617]/90 backdrop-blur">
+    <div className="h-screen bg-white dark:bg-[#020617] text-slate-900 dark:text-white flex flex-col">
+      {/* 🔝 Fixed header: Maintenance Support */}
+      <div className="fixed top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-10 pb-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] shadow-sm">
         <button
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
@@ -190,7 +200,7 @@ export const Community: React.FC = () => {
       </div>
 
       {/* 💬 Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50 dark:bg-[#020617]">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3 bg-slate-50 dark:bg-[#020617] mt-20 mb-24">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center mt-10 text-xs text-slate-500 dark:text-slate-400">
             <MessageCircle
@@ -202,32 +212,56 @@ export const Community: React.FC = () => {
           </div>
         )}
 
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.isMe ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
-                msg.isMe
-                  ? "bg-blue-600 text-white rounded-br-none"
-                  : "bg-slate-200 text-slate-900 rounded-bl-none dark:bg-slate-800 dark:text-slate-100"
-              }`}
-            >
-              <p>{msg.text}</p>
-              {msg.time && (
-                <p className="text-[9px] text-slate-500 dark:text-slate-300/70 mt-1 text-right">
-                  {msg.time}
-                </p>
-              )}
+        {(() => {
+          const groupedMessages: {[key: string]: Message[]} = {};
+          
+          // Group messages by date
+          messages.forEach((msg) => {
+            if (!groupedMessages[msg.date]) {
+              groupedMessages[msg.date] = [];
+            }
+            groupedMessages[msg.date].push(msg);
+          });
+          
+          return Object.entries(groupedMessages).map(([date, dateMessages]) => (
+            <div key={date}>
+              {/* Date Separator */}
+              <div className="flex justify-center my-3">
+                <div className="bg-slate-200 dark:bg-slate-800 text-xs text-slate-500 dark:text-slate-400 px-3 py-1 rounded-full">
+                  {date}
+                </div>
+              </div>
+              
+              {/* Messages for this date */}
+              {dateMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.isMe ? "justify-end" : "justify-start"} mb-2`}
+                >
+                  <div
+                    className={`max-w-[75%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                      msg.isMe
+                        ? "bg-blue-600 text-white rounded-br-none"
+                        : "bg-slate-200 text-slate-900 rounded-bl-none dark:bg-slate-800 dark:text-slate-100"
+                    }`}
+                  >
+                    <p>{msg.text}</p>
+                    {msg.time && (
+                      <p className="text-[9px] text-slate-500 dark:text-slate-300/70 mt-1 text-right">
+                        {msg.time}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
+          ));
+        })()}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ✍ Input – sits above bottom nav thanks to pb-24 on root */}
-      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
+      {/* ✍ Fixed Input at bottom */}
+      <div className="fixed bottom-16 left-0 right-0 z-30 px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#020617] flex items-center gap-2">
         <button className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-900">
           <MessageCircle size={18} className="text-slate-500 dark:text-slate-400" />
         </button>
