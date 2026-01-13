@@ -15,18 +15,20 @@ import {
 } from "firebase/firestore";
 
 import { db } from "../firebase";
-import { Dashboard } from "./Dashboard";
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
-  const [isStaffLogin, setIsStaffLogin] = useState(false);
+
+  // role: student | staff | admin
+  const [role, setRole] = useState<"student" | "staff" | "admin">("student");
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
   });
+
   const [submitting, setSubmitting] = useState(false);
 
-  // Generate random student id
   const generateStudentId = () => {
     return "STD" + Math.floor(100000 + Math.random() * 900000);
   };
@@ -37,31 +39,51 @@ export const Login: React.FC = () => {
       return;
     }
 
-  // STAFF LOGIN
-if (isStaffLogin) {
-  if (formData.email.trim().toLowerCase() === "staff17@ro") {
+    /* ===================== ADMIN LOGIN ===================== */
+    if (role === "admin") {
+      if (formData.email.trim().toLowerCase() !== "admin@ro") {
+        alert("❌ Invalid Admin Email");
+        return;
+      }
 
-    const staff = {
-      id: "staff",
-      name: "Hostel Staff",
-      email: "staff17@ro",
-      role: "staff",
-    };
+      const admin = {
+        id: "admin",
+        name: "Hostel Admin",
+        email: "admin@ro",
+        role: "admin",
+        hostelId: "HOSTEL_001",
+      };
 
-    localStorage.setItem("student", JSON.stringify(staff));
-    localStorage.setItem("userProfile", JSON.stringify(staff));
+      localStorage.setItem("student", JSON.stringify(admin));
+      localStorage.setItem("userProfile", JSON.stringify(admin));
 
-    navigate("/staff-dashboard");
-  } else {
-    alert("Invalid Staff Email");
-  }
-  return;
-}
+      navigate("/admin/dashboard");
+      return;
+    }
 
+    /* ===================== STAFF LOGIN ===================== */
+    if (role === "staff") {
+      if (formData.email.trim().toLowerCase() !== "staff17@ro") {
+        alert("❌ Invalid Staff Email");
+        return;
+      }
 
+      const staff = {
+        id: "staff",
+        name: "Hostel Staff",
+        email: "staff17@ro",
+        role: "staff",
+        hostelId: "HOSTEL_001",
+      };
 
+      localStorage.setItem("student", JSON.stringify(staff));
+      localStorage.setItem("userProfile", JSON.stringify(staff));
 
-    // STUDENT LOGIN
+      navigate("/staff-dashboard");
+      return;
+    }
+
+    /* ===================== STUDENT LOGIN ===================== */
     if (!formData.name) {
       alert("Please enter your name");
       return;
@@ -69,21 +91,19 @@ if (isStaffLogin) {
 
     try {
       setSubmitting(true);
-      const studentsCol = collection(db, "students");
 
-      // 1. Look for existing student by email
+      const studentsCol = collection(db, "students");
       const q = query(studentsCol, where("email", "==", formData.email));
       const snapshot = await getDocs(q);
 
       let studentData: any;
 
       if (!snapshot.empty) {
-        // ✅ Existing student → update login info
         const docSnap = snapshot.docs[0];
         const ref = doc(db, "students", docSnap.id);
 
         await updateDoc(ref, {
-          name: formData.name,                // allow name change
+          name: formData.name,
           lastLogin: serverTimestamp(),
           loginCount: increment(1),
         });
@@ -93,48 +113,40 @@ if (isStaffLogin) {
           studentId: data.studentId,
           name: formData.name,
           email: data.email,
+          role: "student",
+          hostelId: "HOSTEL_001",
         };
       } else {
-        // ✅ New student → create in Firestore
         const studentId = generateStudentId();
 
         const newStudent = {
           studentId,
           name: formData.name,
           email: formData.email,
+          role: "student",
+          hostelId: "HOSTEL_001",
           createdAt: serverTimestamp(),
           lastLogin: serverTimestamp(),
           loginCount: 1,
         };
 
-        const newDoc = await addDoc(studentsCol, newStudent);
-
-        studentData = {
-          ...newStudent,
-          id: newDoc.id,
-        };
+        await addDoc(studentsCol, newStudent);
+        studentData = newStudent;
       }
 
-      // ✅ Save session for student (for other pages)
       localStorage.setItem("student", JSON.stringify(studentData));
 
-      // ✅ ALSO save a userProfile used by Dashboard + Profile
-      const defaultPhoto = "https://picsum.photos/100/100?random=10";
-
       const userProfile = {
-        name: studentData.name,
         id: studentData.studentId,
-        photo: defaultPhoto,
+        name: studentData.name,
+        photo: "https://picsum.photos/100",
         roomNo: "A-101",
-        messPlan: "Veg - Full Plan",
         contactNo: "+91 00000 00000",
       };
 
       localStorage.setItem("userProfile", JSON.stringify(userProfile));
 
-      alert(`✅ Login Successful!\nYour Student ID: ${studentData.studentId}`);
-
-      navigate("/Dashboard"); // student dashboard
+      navigate("/dashboard");
     } catch (err) {
       console.error(err);
       alert("❌ Login failed");
@@ -145,44 +157,44 @@ if (isStaffLogin) {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 px-6 py-8 flex flex-col">
-      {/* Back button */}
-      <div className="mb-4">
-        <button
-          onClick={() => navigate("/onboarding")}
-          className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200"
-        >
-          <ArrowLeft size={20} />
-          <span>Back</span>
-        </button>
-      </div>
+      {/* Back */}
+      <button
+        onClick={() => navigate("/onboarding")}
+        className="flex items-center gap-2 text-sm mb-4"
+      >
+        <ArrowLeft size={18} /> Back
+      </button>
 
-      {/* Header + mode indicator */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-          {isStaffLogin ? "Staff Login" : "Student Login"}
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          {isStaffLogin
-            ? "Sign in to access the staff dashboard."
-            : "Enter your details to continue as a student."}
-        </p>
-      </div>
+      {/* Header */}
+      <h1 className="text-2xl font-bold mb-1 capitalize">
+        {role} Login
+      </h1>
+      <p className="text-sm text-slate-500 mb-6">
+        Select role and continue
+      </p>
 
-      {/* Mode switch button */}
+      {/* Role Switch */}
       <div className="mb-6">
         <button
-          type="button"
-          onClick={() => setIsStaffLogin(!isStaffLogin)}
-          className="w-full border border-slate-300 dark:border-slate-700 py-2.5 rounded-xl flex items-center justify-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200"
+          onClick={() =>
+            setRole(
+              role === "student"
+                ? "staff"
+                : role === "staff"
+                ? "admin"
+                : "student"
+            )
+          }
+          className="w-full border py-2.5 rounded-xl flex items-center justify-center gap-2"
         >
           <ArrowLeftRight size={18} />
-          {isStaffLogin ? "Switch to Student Login" : "Switch to Staff Login"}
+          Switch Role
         </button>
       </div>
 
       {/* Form */}
       <div className="space-y-4 flex-1">
-        {!isStaffLogin && (
+        {role === "student" && (
           <input
             type="text"
             placeholder="Enter your name"
@@ -190,31 +202,29 @@ if (isStaffLogin) {
             onChange={(e) =>
               setFormData({ ...formData, name: e.target.value })
             }
-            className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-transparent text-slate-900 dark:text-slate-100 text-sm outline-none"
+            className="w-full p-3 border rounded-xl"
           />
         )}
 
         <input
           type="email"
-          placeholder={isStaffLogin ? "Staff email" : "Student email"}
+          placeholder={`${role} email`}
           value={formData.email}
           onChange={(e) =>
             setFormData({ ...formData, email: e.target.value })
           }
-          className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-xl bg-transparent text-slate-900 dark:text-slate-100 text-sm outline-none"
+          className="w-full p-3 border rounded-xl"
         />
       </div>
 
-      {/* Login button */}
-      <div className="mt-8 mb-4">
-        <button
-          onClick={handleLogin}
-          disabled={submitting}
-          className={`w-full py-3 rounded-xl text-sm font-semibold transition-colors ${submitting ? 'bg-slate-300 text-slate-500 cursor-not-allowed' : 'bg-teal-500 hover:bg-teal-600 text-white'}`}
-        >
-          {submitting ? 'Logging in...' : (isStaffLogin ? 'Login as Staff' : 'Login as Student')}
-        </button>
-      </div>
+      {/* Login Button */}
+      <button
+        onClick={handleLogin}
+        disabled={submitting}
+        className="w-full py-3 mt-8 rounded-xl bg-teal-500 text-white font-semibold"
+      >
+        {submitting ? "Logging in..." : `Login as ${role}`}
+      </button>
     </div>
   );
 };

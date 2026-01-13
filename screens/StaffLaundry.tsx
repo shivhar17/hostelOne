@@ -30,11 +30,11 @@ export default function StaffLaundry() {
   const navigate = useNavigate();
 
   const [bookings, setBookings] = useState<
-    (Booking & { student?: Student })[]
+    (Booking & { student: Student })[]
   >([]);
-  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState("");
 
-  // LOAD BOOKINGS + STUDENT DETAILS
+  // LOAD BOOKINGS + STUDENT DETAILS (NORMALIZED)
   useEffect(() => {
     const loadBookings = async () => {
       const snap = await getDocs(collection(db, "laundryBookings"));
@@ -43,22 +43,20 @@ export default function StaffLaundry() {
       for (const d of snap.docs) {
         const booking = d.data() as Booking;
 
-        // 🔥 Correct student fetch using studentId as docId
         const studentRef = doc(db, "students", booking.studentId);
         const studentSnap = await getDoc(studentRef);
+
+        const studentData = studentSnap.exists()
+          ? studentSnap.data()
+          : null;
 
         list.push({
           id: d.id,
           ...booking,
-          student: studentSnap.exists()
-            ? {
-                name: studentSnap.data().name || "Unknown",
-                phone: studentSnap.data().phone || "N/A",
-              }
-            : {
-                name: "Unknown",
-                phone: "N/A",
-              },
+          student: {
+            name: studentData?.name || "Student",
+            phone: studentData?.phone || "—",
+          },
         });
       }
 
@@ -73,7 +71,7 @@ export default function StaffLaundry() {
     await addDoc(collection(db, "notifications"), {
       studentId: booking.studentId,
       title: "Laundry Reminder",
-      message: `Your laundry slot is ${booking.start} – ${booking.end}. Please collect your clothes.`,
+      message: `Your laundry slot is ${booking.start} – ${booking.end}.`,
       createdAt: serverTimestamp(),
       read: false,
     });
@@ -88,10 +86,9 @@ export default function StaffLaundry() {
       )
     );
 
-    alert("✅ Notification sent to student");
+    alert("✅ Notification sent");
   };
 
-  // FILTER BY DATE
   const filteredBookings = selectedDate
     ? bookings.filter((b) => b.dateKey === selectedDate)
     : bookings;
@@ -99,15 +96,25 @@ export default function StaffLaundry() {
   return (
     <div className="p-4 space-y-5">
 
-      {/* HEADER WITH BACK BUTTON */}
-      <div className="flex items-center gap-3">
+      {/* HEADER */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="px-3 py-2 rounded-lg bg-gray-200"
+          >
+            ← Back
+          </button>
+          <h2 className="text-2xl font-bold">Laundry Bookings</h2>
+        </div>
+
+        {/* ➕ ADD SLOT BUTTON */}
         <button
-          onClick={() => navigate(-1)}
-          className="px-3 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+          onClick={() => navigate("/staff-laundry/add-slot")}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-semibold"
         >
-          ← Back
+          + Add Slot
         </button>
-        <h2 className="text-2xl font-bold">Laundry Bookings</h2>
       </div>
 
       {/* DATE FILTER */}
@@ -133,20 +140,16 @@ export default function StaffLaundry() {
       {filteredBookings.map((b) => (
         <div
           key={b.id}
-          className="bg-white rounded-2xl shadow-md border border-gray-200 p-5 space-y-3"
+          className="bg-white rounded-2xl shadow-md border p-5 space-y-3"
         >
-          {/* TOP ROW */}
           <div className="flex justify-between items-center">
             <div>
-              <h3 className="text-xl font-bold text-gray-900">
-                {b.student?.name}
-              </h3>
-              <p className="text-sm text-gray-600 font-mono">
-                Student ID: {b.studentId}
+              <h3 className="text-xl font-bold">{b.student.name}</h3>
+              <p className="text-sm font-mono text-gray-600">
+                ID: {b.studentId}
               </p>
             </div>
 
-            {/* STATUS BADGE */}
             <span
               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                 b.notified
@@ -158,24 +161,22 @@ export default function StaffLaundry() {
             </span>
           </div>
 
-          {/* DETAILS */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              📅 Date: <strong>{b.dateKey}</strong>
+            <div className="bg-gray-50 px-3 py-2 rounded">
+              📅 {b.dateKey}
             </div>
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              ⏰ Slot: <strong>{b.start} – {b.end}</strong>
+            <div className="bg-gray-50 px-3 py-2 rounded">
+              ⏰ {b.start} – {b.end}
             </div>
-            <div className="bg-gray-50 rounded-lg px-3 py-2">
-              📞 Phone: <strong>{b.student?.phone}</strong>
+            <div className="bg-gray-50 px-3 py-2 rounded">
+              📞 {b.student.phone}
             </div>
           </div>
 
-          {/* ACTION */}
           {!b.notified && (
             <button
               onClick={() => notifyStudent(b)}
-              className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-xl font-semibold active:scale-95 transition"
+              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold"
             >
               Notify Student
             </button>
@@ -184,8 +185,8 @@ export default function StaffLaundry() {
       ))}
 
       {filteredBookings.length === 0 && (
-        <p className="text-gray-500 text-center mt-10">
-          No bookings found for selected date.
+        <p className="text-center text-gray-500 mt-10">
+          No bookings found.
         </p>
       )}
     </div>
