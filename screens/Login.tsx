@@ -41,25 +41,28 @@ export const Login: React.FC = () => {
 
     /* ===================== ADMIN LOGIN ===================== */
     if (role === "admin") {
-      if (formData.email.trim().toLowerCase() !== "admin@ro") {
-        alert("❌ Invalid Admin Email");
+      if (formData.email.trim().toLowerCase() === "admin@ro") {
+        const adminUser = {
+          id: "admin-1",
+          name: "Hostel Admin",
+          email: "admin@ro",
+          role: "admin",
+          hostelId: "hostel-1",
+        };
+
+        // Store user data in localStorage
+        localStorage.setItem("user", JSON.stringify(adminUser));
+        localStorage.setItem("userProfile", JSON.stringify(adminUser));
+
+        // Navigate to admin dashboard
+        navigate("/admin-dashboard");
+        return;
+      } else {
+        alert("Invalid admin credentials");
         return;
       }
-
-      const admin = {
-        id: "admin",
-        name: "Hostel Admin",
-        email: "admin@ro",
-        role: "admin",
-        hostelId: "HOSTEL_001",
-      };
-
-      localStorage.setItem("student", JSON.stringify(admin));
-      localStorage.setItem("userProfile", JSON.stringify(admin));
-
-      navigate("/admin/dashboard");
-      return;
     }
+
 
     /* ===================== STAFF LOGIN ===================== */
     if (role === "staff") {
@@ -76,7 +79,7 @@ export const Login: React.FC = () => {
         hostelId: "HOSTEL_001",
       };
 
-      localStorage.setItem("student", JSON.stringify(staff));
+      localStorage.setItem("user", JSON.stringify(staff));
       localStorage.setItem("userProfile", JSON.stringify(staff));
 
       navigate("/staff-dashboard");
@@ -134,7 +137,7 @@ export const Login: React.FC = () => {
         studentData = newStudent;
       }
 
-      localStorage.setItem("student", JSON.stringify(studentData));
+      localStorage.setItem("user", JSON.stringify(studentData));
 
       const userProfile = {
         id: studentData.studentId,

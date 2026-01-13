@@ -4,6 +4,7 @@ export enum IssueCategory {
   CLEANING = 'Cleaning',
   REPAIRS = 'Room Repairs',
   MESS = 'Mess Complaint',
+  WIFI = 'Wi-fi issue',
   OTHERS = 'Others'
 }
 

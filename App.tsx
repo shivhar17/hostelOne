@@ -37,13 +37,64 @@ import { StaffEditAnnouncement } from "./screens/StaffEditAnnouncement";
 import { BottomNav } from "./components/BottomNav";
 
 /* -------------------- PROTECTED ROUTE -------------------- */
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const isLoggedIn =
-    localStorage.getItem("student") ||
-    localStorage.getItem("staff") ||
-    localStorage.getItem("admin");
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: 'student' | 'staff' | 'admin';
+  hostelId: string;
+  [key: string]: any; // For any additional properties
+}
 
-  if (!isLoggedIn) return <Navigate to="/login" replace />;
+const ProtectedRoute = ({
+  children,
+  roles = [] as Array<'student' | 'staff' | 'admin'>
+}: {
+  children: React.ReactNode,
+  roles?: Array<'student' | 'staff' | 'admin'>
+}) => {
+  const [isLoading, setIsLoading] = React.useState(true);
+  const [user, setUser] = React.useState<User | null>(null);
+
+  React.useEffect(() => {
+    try {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
+        setUser(parsedUser);
+      }
+    } catch (error) {
+      console.error("Error parsing user data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    </div>;
+  }
+
+  // If user is not logged in, redirect to login
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  // If route requires specific roles and user doesn't have any of them
+  if (roles.length > 0 && !roles.includes(user.role)) {
+    // If user is admin but trying to access staff route, allow it
+    if (user.role === 'admin' && roles.includes('staff')) {
+      return <>{children}</>;
+    }
+    // If user is staff but trying to access admin route, redirect to staff dashboard
+    if (user.role === 'staff' && roles.includes('admin')) {
+      return <Navigate to="/staff-dashboard" replace />;
+    }
+    // For any other role mismatch, redirect to unauthorized
+    return <Navigate to="/unauthorized" replace />;
+  }
+
   return <>{children}</>;
 };
 
@@ -74,9 +125,7 @@ const AppRoutes: React.FC = () => {
         <Route
           path="/"
           element={
-            localStorage.getItem("student") ||
-            localStorage.getItem("staff") ||
-            localStorage.getItem("admin")
+            localStorage.getItem("user")
               ? <Navigate to="/dashboard" replace />
               : <Navigate to="/login" replace />
           }
@@ -98,24 +147,99 @@ const AppRoutes: React.FC = () => {
         <Route path="/laundry" element={<ProtectedRoute><Laundry /></ProtectedRoute>} />
 
         {/* STAFF */}
-        <Route path="/staff-dashboard" element={<StaffDashboard />} />
-        <Route path="/staff/complaint/:id" element={<ComplaintDetail />} />
-        <Route path="/staff/edit-menu" element={<EditMessMenu />} />
-        <Route path="/staff/students" element={<StudentsDirectory />} />
-        <Route path="/staff/student/:id" element={<StudentProfile />} />
-        <Route path="/staff/new-announcement" element={<StaffNewAnnouncement />} />
-        <Route path="/staff/announcements-list" element={<StaffAnnouncementList />} />
-        <Route path="/staff/edit-notice/:id" element={<StaffEditAnnouncement />} />
-        <Route path="/staff-laundry" element={<StaffLaundry />} />
-        <Route path="/staff-laundry/add-slot" element={<StaffCreateLaundrySlot />} />
+        <Route 
+          path="/staff-dashboard" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StaffDashboard />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/complaint/:id" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <ComplaintDetail />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/edit-menu" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <EditMessMenu />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/students" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StudentsDirectory />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/student/:id" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StudentProfile />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/new-announcement" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StaffNewAnnouncement />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/announcements-list" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StaffAnnouncementList />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff/edit-notice/:id" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StaffEditAnnouncement />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff-laundry" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StaffLaundry />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/staff-laundry/add-slot" 
+          element={
+            <ProtectedRoute roles={['staff', 'admin']}>
+              <StaffCreateLaundrySlot />
+            </ProtectedRoute>
+          } 
+        />
 
-        {/* ADMIN ✅ FIXED */}
+        {/* ADMIN */}
         <Route
           path="/admin-dashboard"
           element={
-            admin ? <AdminDashboard /> : <Navigate to="/login" replace />
+            <ProtectedRoute roles={["admin"]}>
+              <AdminDashboard />
+            </ProtectedRoute>
           }
         />
+
+        {/* DEFAULT */}
+        <Route path="*" element={<Navigate to="/login" />} />
       </Routes>
 
       {showBottomNav && <BottomNav />}
