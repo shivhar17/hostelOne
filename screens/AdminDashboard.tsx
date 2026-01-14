@@ -1,42 +1,71 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import {
+  Menu,
+  X,
+  Home,
+  Building2,
+  Users,
+  AlertCircle,
+  UserCog,
+  Settings,
+  LogOut,
+} from "lucide-react";
 import {
   collection,
   onSnapshot,
   query,
   where,
-  updateDoc,
-  doc,
+  Timestamp,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { useNavigate } from "react-router-dom";
 
-type Complaint = {
-  id: string;
-  title: string;
-  category: string;
-  room: string;
-  studentName?: string;
-  priority: "URGENT" | "NORMAL";
-  status: "NEW" | "IN_PROGRESS" | "RESOLVED";
-  createdAt?: any;
-};
+const navItems = [
+  { label: "Dashboard", icon: Home, path: "/admin-dashboard" },
+  { label: "Rooms", icon: Building2, path: "/admin-rooms" },
+  { label: "Students", icon: Users, path: "/admin-students" },
+  { label: "Complaints", icon: AlertCircle, path: "/admin-complaints" },
+  { label: "Staff Management", icon: UserCog, path: "/admin-staff" },
+  { label: "Settings", icon: Settings, path: "/admin-settings" },
+];
 
 export default function AdminDashboard() {
+  const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [complaints, setComplaints] = useState<Complaint[]>([]);
-  const [filter, setFilter] = useState<
-    "ALL" | "NEW" | "IN_PROGRESS" | "RESOLVED" | "URGENT"
-  >("NEW");
+  const user = JSON.parse(localStorage.getItem("student") || "{}");
+  const hostelId = user?.hostelId;
 
+  // ======================
+  // NEW COMPLAINT COUNT
+  // ======================
+  const [newComplaintCount, setNewComplaintCount] = useState(0);
+
+  useEffect(() => {
+    if (!hostelId) return;
+
+    const q = query(
+      collection(db, "complaints"),
+      where("hostelId", "==", hostelId),
+      where("status", "==", "NEW")
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      setNewComplaintCount(snap.size);
+    });
+
+    return () => unsub();
+  }, [hostelId]);
+
+  // ======================
+  // DASHBOARD STATS
+  // ======================
   const [stats, setStats] = useState({
     totalStudents: 0,
     activeToday: 0,
   });
 
-  // ======================
-  // FETCH DASHBOARD STATS
-  // ======================
   useEffect(() => {
     const unsubStudents = onSnapshot(
       collection(db, "students"),
@@ -51,12 +80,12 @@ export default function AdminDashboard() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const q = query(
+    const activeQuery = query(
       collection(db, "students"),
-      where("lastLogin", ">=", today)
+      where("lastLogin", ">=", Timestamp.fromDate(today))
     );
 
-    const unsubActive = onSnapshot(q, (snap) => {
+    const unsubActive = onSnapshot(activeQuery, (snap) => {
       setStats((prev) => ({
         ...prev,
         activeToday: snap.size,
@@ -69,169 +98,115 @@ export default function AdminDashboard() {
     };
   }, []);
 
-  // ======================
-  // FETCH COMPLAINTS
-  // ======================
-  useEffect(() => {
-    const q = query(collection(db, "complaints"));
-    const unsub = onSnapshot(q, (snap) => {
-      const list: Complaint[] = snap.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as any),
-      }));
-      setComplaints(list);
-    });
+  const handleNav = (path: string) => {
+    setOpen(false);
 
-    return () => unsub();
-  }, []);
+    // Routes that actually exist
+    const existingRoutes = ["/admin-dashboard"];
 
-  // ======================
-  // FILTER LOGIC
-  // ======================
-  const filteredComplaints = complaints.filter((c) => {
-    if (filter === "ALL") return true;
-    if (filter === "URGENT") return c.priority === "URGENT";
-    return c.status === filter;
-  });
+    if (!existingRoutes.includes(path)) {
+      alert("🚧 Coming Soon");
+      return;
+    }
 
-  // ======================
-  // ACTIONS
-  // ======================
-  const startWork = async (id: string) => {
-    if (!window.confirm("Start work on this complaint?")) return;
-    await updateDoc(doc(db, "complaints", id), {
-      status: "IN_PROGRESS",
-    });
+    navigate(path);
   };
 
-  const resolveComplaint = async (id: string) => {
-    if (!window.confirm("Mark this complaint as resolved?")) return;
-    await updateDoc(doc(db, "complaints", id), {
-      status: "RESOLVED",
-    });
+  const logout = () => {
+    localStorage.clear();
+    navigate("/login");
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* HEADER */}
-      <h1 className="text-2xl font-bold mb-4">Dashboard Overview</h1>
+    <div className="min-h-screen bg-gray-50 relative overflow-hidden">
+      {/* ================= HEADER ================= */}
+      <header className="flex items-center justify-between px-4 py-3 bg-white shadow-sm sticky top-0 z-30">
+        <button onClick={() => setOpen(true)}>
+          <Menu size={24} />
+        </button>
 
-      {/* STATS */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <StatCard label="Total Students" value={stats.totalStudents} />
-        <StatCard label="Active Today" value={stats.activeToday} />
-      </div>
+        <h1 className="font-bold text-lg">HostelOne Admin</h1>
 
-      {/* COMPLAINT MANAGEMENT */}
-      <h2 className="text-xl font-semibold mb-3">
-        Complaint Management
-      </h2>
-
-      {/* TABS */}
-      <div className="flex gap-4 mb-4 overflow-x-auto">
-        {["ALL", "NEW", "IN_PROGRESS", "RESOLVED", "URGENT"].map(
-          (t) => (
-            <button
-              key={t}
-              onClick={() => setFilter(t as any)}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                filter === t
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-200 text-gray-700"
-              }`}
-            >
-              {t === "IN_PROGRESS" ? "In Progress" : t}
-            </button>
-          )
-        )}
-      </div>
-
-      {/* LIST */}
-      {filteredComplaints.length === 0 ? (
-        <div className="text-center text-gray-500 mt-10">
-          No complaints found 🎉
+        <div className="w-9 h-9 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold">
+          AD
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredComplaints.map((c) => (
-            <div
-              key={c.id}
-              className="bg-white rounded-xl p-4 shadow"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <span
-                  className={`px-2 py-1 rounded text-xs font-semibold ${
-                    c.priority === "URGENT"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-blue-100 text-blue-600"
-                  }`}
-                >
-                  {c.priority}
-                </span>
-                <span className="text-xs text-gray-400">
-                  {c.status.replace("_", " ")}
-                </span>
-              </div>
+      </header>
 
-              <h3 className="font-semibold text-lg">
-                {c.title || c.category}
-              </h3>
-
-              <p className="text-sm text-gray-500">
-                Room: {c.room} •{" "}
-                {c.studentName || "Unknown Student"}
-              </p>
-
-              <div className="flex gap-2 mt-4">
-                {c.status === "NEW" && (
-                  <button
-                    onClick={() => startWork(c.id)}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg"
-                  >
-                    Start Work
-                  </button>
-                )}
-
-                {c.status === "IN_PROGRESS" && (
-                  <button
-                    onClick={() => resolveComplaint(c.id)}
-                    className="flex-1 bg-green-600 text-white py-2 rounded-lg"
-                  >
-                    Resolve
-                  </button>
-                )}
-
-                <button
-                  onClick={() =>
-                    navigate(`/complaint/${c.id}`)
-                  }
-                  className="flex-1 border border-blue-600 text-blue-600 py-2 rounded-lg"
-                >
-                  Details
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* ================= OVERLAY ================= */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40"
+          onClick={() => setOpen(false)}
+        />
       )}
-    </div>
-  );
-}
 
-// ======================
-// SMALL COMPONENT
-// ======================
-function StatCard({
-  label,
-  value,
-}: {
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="bg-white rounded-xl p-4 shadow">
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
+      {/* ================= DRAWER ================= */}
+      <aside
+        className={`fixed top-0 left-0 h-full w-64 bg-white z-50 shadow-xl transform transition-transform duration-300 ${
+          open ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="flex items-center justify-between px-4 py-4 border-b">
+          <h2 className="font-semibold">Admin Panel</h2>
+          <button onClick={() => setOpen(false)}>
+            <X size={20} />
+          </button>
+        </div>
+
+        <nav className="p-2 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = location.pathname.startsWith(item.path);
+
+            return (
+              <button
+                key={item.label}
+                onClick={() => handleNav(item.path)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-left transition ${
+                  active
+                    ? "bg-blue-100 text-blue-700"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                <Icon size={18} />
+                {item.label}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="absolute bottom-0 w-full p-4 border-t">
+          <button
+            onClick={logout}
+            className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg"
+          >
+            <LogOut size={18} />
+            Logout
+          </button>
+        </div>
+      </aside>
+
+      {/* ================= MAIN CONTENT ================= */}
+      <main className="p-4">
+        <h2 className="text-2xl font-bold mb-4">Dashboard Overview</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white p-6 rounded-xl shadow">
+            <p className="text-gray-500">Total Students</p>
+            <h3 className="text-3xl font-bold">{stats.totalStudents}</h3>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow">
+            <p className="text-gray-500">Active Today</p>
+            <h3 className="text-3xl font-bold">{stats.activeToday}</h3>
+          </div>
+
+          <div className="bg-white p-6 rounded-xl shadow">
+            <p className="text-gray-500">New Complaints</p>
+            <h3 className="text-3xl font-bold">{newComplaintCount}</h3>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
